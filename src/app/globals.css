@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  /* Tailwind automatically turns these into classes like bg-shift-navy, text-shift-lime, etc. */
+  --color-shift-navy: #0F172A;
+  --color-shift-card: #1E293B;
+  --color-shift-lime: #C5E000;
+  --color-shift-limeHover: #a8c000;
+  --color-shift-cyan: #38BDF8;
+  --color-shift-textMain: #F8FAFC;
+  --color-shift-textMuted: #94A3B8;
+}
+
+body {
+  background-color: var(--color-shift-navy);
+  color: var(--color-shift-textMain);
+}
