@@ -1,22 +1,11 @@
-import { createPublicClient, createWalletClient, encodeFunctionData, http, isAddress, keccak256, parseEther, parseGwei, type Address, type Hex } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import { createPublicClient, http, isAddress, keccak256, type Address, type Hex } from 'viem';
 import { randomUUID } from 'crypto';
 import { robinhoodChain } from '@/lib/viem';
+import { buildSeaDropPlan } from '@/lib/seadrop';
 
 const RPC_URL = process.env.ROBINHOOD_CHAIN_RPC_URL ?? 'https://rpc.mainnet.chain.robinhood.com';
 const DEFAULT_RPC_URLS = [RPC_URL, 'https://sequencer.mainnet.chain.robinhood.com'];
-const SEADROP_ADDRESS = '0x00005EA00Ac477B1030CE78506496e8C2dE24bf5' as Address;
-const OPENSEA_FEE_RECIPIENT = '0x0000a26b00c1F0DF003000390027140000fAa719' as Address;
-const GAS_LIMIT = 250_000n;
 const publicClient = createPublicClient({ chain: robinhoodChain, transport: http(RPC_URL) });
-
-const seaDropAbi = [
-  { name: 'getPublicDrop', type: 'function', stateMutability: 'view', inputs: [{ name: 'nftContract', type: 'address' }], outputs: [{ type: 'tuple', components: [{ name: 'mintPrice', type: 'uint80' }, { name: 'startTime', type: 'uint48' }, { name: 'endTime', type: 'uint48' }, { name: 'maxTotalMintableByWallet', type: 'uint16' }, { name: 'feeBps', type: 'uint16' }, { name: 'restrictFeeRecipients', type: 'bool' }] }] },
-  { name: 'getAllowedFeeRecipients', type: 'function', stateMutability: 'view', inputs: [{ name: 'nftContract', type: 'address' }], outputs: [{ type: 'address[]' }] },
-  { name: 'mintPublic', type: 'function', stateMutability: 'payable', inputs: [{ name: 'nftContract', type: 'address' }, { name: 'feeRecipient', type: 'address' }, { name: 'minterIfNotPayer', type: 'address' }, { name: 'quantity', type: 'uint256' }], outputs: [] },
-] as const;
-
-type PublicDrop = { mintPrice: bigint; startTime: bigint; endTime: bigint; maxTotalMintableByWallet: bigint; restrictFeeRecipients: boolean };
 
 export interface SnipeTask {
   id: string;
@@ -27,8 +16,6 @@ export interface SnipeTask {
   targetFunctionName: string;
   executionMode: 'BURNER' | 'PRESIGN';
   serializedTransaction: Hex;
-  maxFeeGwei?: string;
-  priorityTipGwei?: string;
   scheduledFor: string;
   endsAt?: string;
   rpcUrls: string[];
@@ -56,29 +43,6 @@ export function startSniperEngine() {
   if (engineStarted) return;
   engineStarted = true;
   console.log('[SHIFT BOT] Execution scheduler ready.');
-}
-
-async function readSeaDropPlan(nftContract: Address, quantity: number) {
-  try {
-    const rawDrop = await publicClient.readContract({ address: SEADROP_ADDRESS, abi: seaDropAbi, functionName: 'getPublicDrop', args: [nftContract] });
-    const drop = rawDrop as unknown as PublicDrop;
-    if (drop.startTime === 0n && drop.endTime === 0n && drop.maxTotalMintableByWallet === 0n) return null;
-    if (quantity > Number(drop.maxTotalMintableByWallet)) throw new Error(`Quantity exceeds this drop's ${drop.maxTotalMintableByWallet} per-wallet limit.`);
-    const allowed = await publicClient.readContract({ address: SEADROP_ADDRESS, abi: seaDropAbi, functionName: 'getAllowedFeeRecipients', args: [nftContract] });
-    const feeRecipient = allowed[0] ?? (drop.restrictFeeRecipients ? undefined : OPENSEA_FEE_RECIPIENT);
-    if (!feeRecipient) throw new Error('This SeaDrop collection has no allowed fee recipient.');
-    return {
-      to: SEADROP_ADDRESS,
-      data: encodeFunctionData({ abi: seaDropAbi, functionName: 'mintPublic', args: [nftContract, feeRecipient, '0x0000000000000000000000000000000000000000', BigInt(quantity)] }),
-      value: drop.mintPrice * BigInt(quantity),
-      startsAt: Number(drop.startTime) * 1_000,
-      endsAt: Number(drop.endTime) * 1_000,
-      mintPriceEth: (Number(drop.mintPrice) / 1e18).toString(),
-    };
-  } catch (error) {
-    if (error instanceof Error && (error.message.includes('per-wallet limit') || error.message.includes('allowed fee recipient'))) throw error;
-    return null;
-  }
 }
 
 function scheduleTask(task: SnipeTask) {
@@ -148,44 +112,41 @@ async function trackReceipt(log: TradeLog, txHash: Hex) {
   }
 }
 
-export async function armSniper(contract: string, price: string, qty: number, fnName: string, mode: 'BURNER' | 'PRESIGN', privateKey?: string, signedPayload?: string, maxFeeGwei?: string, priorityTipGwei?: string): Promise<string> {
+export async function armSniper(
+  contract: string,
+  price: string,
+  qty: number,
+  fnName: string,
+  mode: 'BURNER' | 'PRESIGN',
+  signedPayload: string,
+): Promise<string> {
   startSniperEngine();
   if (!isAddress(contract)) throw new Error('A valid NFT contract address is required.');
   if (!Number.isInteger(qty) || qty < 1) throw new Error('Quantity must be a positive whole number.');
+  if (!signedPayload) throw new Error('A signed transaction is required. Sign it in your browser before submitting.');
+
   const targetContract = contract as Address;
-  const seaDropPlan = await readSeaDropPlan(targetContract, qty);
+  const seaDropPlan = await buildSeaDropPlan(publicClient, targetContract, qty);
   if (seaDropPlan?.endsAt && seaDropPlan.endsAt <= Date.now()) {
     throw new Error('This SeaDrop public mint has already ended.');
   }
-  if (seaDropPlan && mode === 'PRESIGN') {
-    throw new Error('SeaDrop public mints must use Burner mode so the server can pre-sign the on-chain mintPublic transaction.');
-  }
+
   const transactionTo = seaDropPlan?.to ?? targetContract;
-  const data = seaDropPlan?.data ?? encodeFunctionData({ abi: [{ name: fnName, type: 'function', stateMutability: 'payable', inputs: [{ name: 'quantity', type: 'uint256' }], outputs: [] }], functionName: fnName, args: [BigInt(qty)] });
-  const value = seaDropPlan?.value ?? parseEther(price);
   const startAt = seaDropPlan?.startsAt && seaDropPlan.startsAt > Date.now() ? seaDropPlan.startsAt : Date.now();
-  let serializedTransaction: Hex;
 
-  if (mode === 'BURNER') {
-    if (!privateKey) throw new Error('An active burner wallet is required.');
-    const account = privateKeyToAccount(privateKey as Hex);
-    const maxFeePerGas = parseGwei(maxFeeGwei ?? '25');
-    const maxPriorityFeePerGas = parseGwei(priorityTipGwei ?? '5');
-    if (maxPriorityFeePerGas > maxFeePerGas) throw new Error('Priority tip cannot exceed the max fee.');
-    const [nonce, chainId, balance] = await Promise.all([
-      publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' }),
-      publicClient.getChainId(),
-      publicClient.getBalance({ address: account.address }),
-    ]);
-    if (balance < value + GAS_LIMIT * maxFeePerGas) throw new Error('Burner wallet cannot cover the mint value and maximum gas reservation.');
-    const walletClient = createWalletClient({ account, chain: robinhoodChain, transport: http(RPC_URL) });
-    serializedTransaction = await walletClient.signTransaction({ account, to: transactionTo, data, value, nonce, chainId, gas: GAS_LIMIT, maxFeePerGas, maxPriorityFeePerGas, type: 'eip1559' });
-  } else {
-    if (!signedPayload) throw new Error('A signed transaction is required for pre-sign mode.');
-    serializedTransaction = signedPayload as Hex;
-  }
-
-  const task: SnipeTask = { id: randomUUID(), targetContract, transactionTo, mintPriceEth: seaDropPlan?.mintPriceEth ?? price, maxQuantity: qty, targetFunctionName: seaDropPlan ? 'mintPublic' : fnName, executionMode: mode, serializedTransaction, maxFeeGwei, priorityTipGwei, scheduledFor: new Date(startAt).toISOString(), endsAt: seaDropPlan?.endsAt ? new Date(seaDropPlan.endsAt).toISOString() : undefined, rpcUrls: DEFAULT_RPC_URLS };
+  const task: SnipeTask = {
+    id: randomUUID(),
+    targetContract,
+    transactionTo,
+    mintPriceEth: seaDropPlan?.mintPriceEth ?? price,
+    maxQuantity: qty,
+    targetFunctionName: seaDropPlan ? 'mintPublic' : fnName,
+    executionMode: mode,
+    serializedTransaction: signedPayload as Hex,
+    scheduledFor: new Date(startAt).toISOString(),
+    endsAt: seaDropPlan?.endsAt ? new Date(seaDropPlan.endsAt).toISOString() : undefined,
+    rpcUrls: DEFAULT_RPC_URLS,
+  };
   activeTasks.set(task.id, task);
   scheduleTask(task);
   return task.id;
@@ -197,14 +158,11 @@ export async function armSniperBatch(
   qty: number,
   fnName: string,
   mode: 'BURNER' | 'PRESIGN',
-  privateKeys?: string[],
-  signedPayload?: string,
-  maxFeeGwei?: string,
-  priorityTipGwei?: string,
+  signedPayloads: string[],
 ): Promise<string[]> {
-  const keys = mode === 'BURNER' ? [...new Set(privateKeys?.filter(Boolean) ?? [])] : [undefined];
-  if (keys.length === 0) throw new Error('At least one burner wallet is required.');
-  return Promise.all(keys.map((privateKey) => armSniper(contract, price, qty, fnName, mode, privateKey, signedPayload, maxFeeGwei, priorityTipGwei)));
+  const payloads = [...new Set((signedPayloads ?? []).filter(Boolean))];
+  if (payloads.length === 0) throw new Error('At least one signed transaction is required.');
+  return Promise.all(payloads.map((signedPayload) => armSniper(contract, price, qty, fnName, mode, signedPayload)));
 }
 
 export function disarmSniper(taskId: string): boolean {
@@ -219,7 +177,6 @@ export function getActiveTasks() {
     id: task.id, targetContract: task.targetContract, transactionTo: task.transactionTo,
     mintPriceEth: task.mintPriceEth, maxQuantity: task.maxQuantity,
     targetFunctionName: task.targetFunctionName, executionMode: task.executionMode,
-    maxFeeGwei: task.maxFeeGwei, priorityTipGwei: task.priorityTipGwei,
     scheduledFor: task.scheduledFor, endsAt: task.endsAt, rpcCount: task.rpcUrls.length,
   }));
 }

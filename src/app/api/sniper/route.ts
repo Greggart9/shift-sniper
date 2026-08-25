@@ -9,30 +9,11 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { 
-      targetContract, 
-      mintPriceEth, 
-      maxQuantity, 
-      functionName, 
-      mode, 
-      burnerPrivateKey, 
-      burnerPrivateKeys,
-      signedPayload,
-      maxFeeGwei,
-      priorityTipGwei
-    } = body;
+    const { targetContract, mintPriceEth, maxQuantity, functionName, mode, signedPayloads } = body;
 
-    const taskIds = await armSniperBatch(
-      targetContract,
-      mintPriceEth,
-      maxQuantity,
-      functionName,
-      mode,
-      burnerPrivateKeys ?? (burnerPrivateKey ? [burnerPrivateKey] : undefined),
-      signedPayload,
-      maxFeeGwei,
-      priorityTipGwei
-    );
+    const payloads: string[] = Array.isArray(signedPayloads) ? signedPayloads : [signedPayloads].filter(Boolean);
+
+    const taskIds = await armSniperBatch(targetContract, mintPriceEth, maxQuantity, functionName, mode, payloads);
 
     return NextResponse.json({ success: true, taskId: taskIds[0], taskIds });
   } catch (error: any) {

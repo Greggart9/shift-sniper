@@ -11,6 +11,7 @@ import Sidebar from '@/components/Sidebar';
 import SniperConfig from '@/components/SniperConfig';
 import ActiveSnipesList from '@/components/ActiveSnipesList';
 import LiveTerminal from '@/components/LiveTerminal';
+import { signBurnerSnipe } from '@/lib/signBurnerTx';
 
 export default function Home() {
   const { isConnected } = useAccount();
@@ -30,9 +31,8 @@ export default function Home() {
     `[${new Date().toLocaleTimeString()}] Connected to Robinhood Chain L2.`
   ]);
 
-  // Inside src/app/page.tsx state declarations:
-const [maxFeeGwei, setMaxFeeGwei] = useState('25');
-const [priorityTipGwei, setPriorityTipGwei] = useState('5');
+  const [maxFeeGwei, setMaxFeeGwei] = useState('25');
+  const [priorityTipGwei, setPriorityTipGwei] = useState('5');
 
   const addLog = (msg: string) => setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
 
@@ -54,23 +54,40 @@ const [priorityTipGwei, setPriorityTipGwei] = useState('5');
       if (mode === 'BURNER') {
         const savedWalletsRaw = localStorage.getItem('shift_burner_wallets');
         const activeId = localStorage.getItem('shift_active_burner_id');
-        let activePrivateKey: string | null = null;
-        let burnerPrivateKeys: string[] = [];
 
-        if (savedWalletsRaw) {
-          const wallets = JSON.parse(savedWalletsRaw);
-          const activeWallet = wallets.find((w: any) => w.id === activeId) || wallets[0];
-          if (activeWallet) activePrivateKey = activeWallet.privateKey;
-          burnerPrivateKeys = wallets.map((wallet: { privateKey?: string }) => wallet.privateKey).filter((key: string | undefined): key is string => Boolean(key));
+        if (!savedWalletsRaw) {
+          addLog('❌ ERROR: No burner wallets saved!');
+          setLoading(false);
+          return;
         }
 
-        if (!activePrivateKey) {
+        const wallets: { id: string; privateKey: `0x${string}` }[] = JSON.parse(savedWalletsRaw);
+        const activeWallet = wallets.find((w) => w.id === activeId) ?? wallets[0];
+
+        if (!activeWallet) {
           addLog('❌ ERROR: No active burner wallet selected!');
           setLoading(false);
           return;
         }
-        payloadParams.burnerPrivateKey = activePrivateKey;
-        payloadParams.burnerPrivateKeys = burnerPrivateKeys;
+
+        addLog('🟡 Signing locally with active burner wallet... key never leaves the browser.');
+        try {
+          const signed = await signBurnerSnipe({
+            privateKey: activeWallet.privateKey,
+            targetContract: targetContract as `0x${string}`,
+            quantity: maxQuantity,
+            fallbackPriceEth: mintPrice,
+            functionName,
+            maxFeeGwei,
+            priorityTipGwei,
+          });
+          payloadParams.signedPayloads = [signed.signedTransaction];
+          addLog('✅ Signed 1 transaction locally.');
+        } catch (signError: any) {
+          addLog(`❌ Local signing failed: ${signError.message ?? 'Unknown error'}`);
+          setLoading(false);
+          return;
+        }
 
       } else if (mode === 'PRESIGN') {
         addLog('🟡 Prompting wallet for signature...');
@@ -96,7 +113,7 @@ const [priorityTipGwei, setPriorityTipGwei] = useState('5');
           });
 
           addLog('✅ Transaction signed successfully!');
-          payloadParams.signedPayload = signedTx; 
+          payloadParams.signedPayloads = [signedTx];
           
         } catch (signError: any) {
           addLog(`❌ Signature rejected: ${signError.shortMessage || 'User denied request.'}`);
