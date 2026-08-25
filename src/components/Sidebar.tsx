@@ -12,7 +12,7 @@ export default function Sidebar() {
     { name: 'Burner Wallet', href: '/burner', icon: Wallet },
     { name: 'Instructions & Rules', href: '/instructions', icon: BookOpen },
     { name: 'Active Snipes', href: '#', icon: Activity },
-    { name: 'History', href: '#', icon: Clock },
+    { name: 'History', href: '/history', icon: Clock },
     { name: 'Settings', href: '#', icon: Settings },
   ];
 

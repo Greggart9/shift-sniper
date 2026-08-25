@@ -30,6 +30,10 @@ export default function Home() {
     `[${new Date().toLocaleTimeString()}] Connected to Robinhood Chain L2.`
   ]);
 
+  // Inside src/app/page.tsx state declarations:
+const [maxFeeGwei, setMaxFeeGwei] = useState('25');
+const [priorityTipGwei, setPriorityTipGwei] = useState('5');
+
   const addLog = (msg: string) => setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
 
   const handleArmSniper = async () => {
@@ -37,17 +41,27 @@ export default function Home() {
     setLoading(true);
 
     try {
-      let payloadParams: any = { targetContract, mintPriceEth: mintPrice, maxQuantity, functionName, mode };
+      const payloadParams: Record<string, unknown> = {
+        targetContract,
+        mintPriceEth: mintPrice,
+        maxQuantity,
+        functionName,
+        mode,
+        maxFeeGwei,
+        priorityTipGwei,
+      };
 
       if (mode === 'BURNER') {
         const savedWalletsRaw = localStorage.getItem('shift_burner_wallets');
         const activeId = localStorage.getItem('shift_active_burner_id');
         let activePrivateKey: string | null = null;
+        let burnerPrivateKeys: string[] = [];
 
         if (savedWalletsRaw) {
           const wallets = JSON.parse(savedWalletsRaw);
           const activeWallet = wallets.find((w: any) => w.id === activeId) || wallets[0];
           if (activeWallet) activePrivateKey = activeWallet.privateKey;
+          burnerPrivateKeys = wallets.map((wallet: { privateKey?: string }) => wallet.privateKey).filter((key: string | undefined): key is string => Boolean(key));
         }
 
         if (!activePrivateKey) {
@@ -56,6 +70,7 @@ export default function Home() {
           return;
         }
         payloadParams.burnerPrivateKey = activePrivateKey;
+        payloadParams.burnerPrivateKeys = burnerPrivateKeys;
 
       } else if (mode === 'PRESIGN') {
         addLog('🟡 Prompting wallet for signature...');
@@ -99,7 +114,8 @@ export default function Home() {
       const data = await response.json();
 
       if (data.success) {
-        addLog(`🎯 SNIPER TASK ARMED: [ID: ${data.taskId.slice(0, 8)}...] Target: ${targetContract} [Mode: ${mode}]`);
+        const taskCount = data.taskIds?.length ?? 1;
+        addLog(`🎯 ${taskCount} SNIPER TASK${taskCount === 1 ? '' : 'S'} ARMED: Target: ${targetContract} [Mode: ${mode}]`);
         setRefreshTrigger((prev) => prev + 1); // Refresh the active list table
       } else {
         addLog(`❌ API Error: ${data.error}`);
@@ -109,7 +125,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-    toast.success('Sniper task armed and queued successfully!')
+    toast.success('Sniper task armed and queued successfully!');
   };
 
   if (!isConnected) {
@@ -140,6 +156,10 @@ export default function Home() {
           setMaxQuantity={setMaxQuantity}
           functionName={functionName}
           setFunctionName={setFunctionName}
+          maxFeeGwei={maxFeeGwei}
+          setMaxFeeGwei={setMaxFeeGwei}
+          priorityTipGwei={priorityTipGwei}
+          setPriorityTipGwei={setPriorityTipGwei}
           mode={mode}
           setMode={setMode}
           isArmed={false} // Multi-task means config is never globally locked down

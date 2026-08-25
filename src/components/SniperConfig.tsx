@@ -1,6 +1,7 @@
 'use client';
 
-import { Play, Square, Zap, ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
+import { Play, Zap, ShieldCheck, Sparkles, Lock, Flame } from 'lucide-react';
 
 interface SniperConfigProps {
   targetContract: string;
@@ -11,6 +12,10 @@ interface SniperConfigProps {
   setMaxQuantity: (val: number) => void;
   functionName: string;
   setFunctionName: (val: string) => void;
+  maxFeeGwei: string;
+  setMaxFeeGwei: (val: string) => void;
+  priorityTipGwei: string;
+  setPriorityTipGwei: (val: string) => void;
   mode: 'BURNER' | 'PRESIGN';
   setMode: (val: 'BURNER' | 'PRESIGN') => void;
   isArmed: boolean;
@@ -27,33 +32,59 @@ export default function SniperConfig({
   setMaxQuantity,
   functionName,
   setFunctionName,
+  maxFeeGwei,
+  setMaxFeeGwei,
+  priorityTipGwei,
+  setPriorityTipGwei,
   mode,
   setMode,
   isArmed,
   loading,
   onToggleArm,
 }: SniperConfigProps) {
+  const [fetchingInfo, setFetchingInfo] = useState(false);
+
+  const handleContractChange = async (address: string) => {
+    setTargetContract(address);
+    if (address.length === 42 && address.startsWith('0x')) {
+      setFetchingInfo(true);
+      try {
+        const res = await fetch(`/api/inspect?address=${address}`);
+        const data = await res.json();
+        if (data.success) {
+          setMintPrice(data.mintPrice);
+          setFunctionName(data.functionName);
+        }
+      } catch (err) {
+        console.error('Auto-fetch error:', err);
+      } finally {
+        setFetchingInfo(false);
+      }
+    }
+  };
+
   return (
-    <div className="bg-shift-card border border-slate-700 rounded-xl p-6 mb-6 relative overflow-hidden">
-      {isArmed && (
-        <div className="absolute inset-0 z-10 bg-shift-navy/50 backdrop-blur-[1px] pointer-events-none" />
-      )}
+    <div className="bg-shift-card border border-slate-700 rounded-xl p-6 mb-6 relative">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-lg font-bold flex items-center gap-2">
+          <span className="text-shift-lime">🎯</span> SNIPER CONFIGURATION
+        </h2>
+        
+        <div className="flex items-center gap-1.5 text-xs text-shift-cyan bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg">
+          <Sparkles size={14} className={fetchingInfo ? 'animate-spin' : ''} />
+          {fetchingInfo ? 'Scanning Chain...' : 'Auto-Sync Active'}
+        </div>
+      </div>
 
-      <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
-        <span className="text-shift-lime">🎯</span> SNIPER CONFIGURATION
-      </h2>
-
-      {/* Dual-Mode Selector */}
-      <div className="mb-8">
-        <label className="block text-sm text-shift-textMuted mb-3">Execution Mode</label>
-        <div className="flex bg-slate-900 border border-slate-700 rounded-xl p-1 relative z-20">
+      {/* Mode Switcher */}
+      <div className="mb-6">
+        <label className="block text-xs text-shift-textMuted mb-2 font-mono uppercase">Execution Mode</label>
+        <div className="flex bg-slate-900 border border-slate-700 rounded-xl p-1">
           <button
             onClick={() => setMode('BURNER')}
             disabled={isArmed}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${
-              mode === 'BURNER' 
-                ? 'bg-shift-lime text-shift-navy shadow-sm' 
-                : 'text-shift-textMuted hover:text-white'
+              mode === 'BURNER' ? 'bg-shift-lime text-shift-navy' : 'text-shift-textMuted hover:text-white'
             }`}
           >
             <Zap size={16} /> PUBLIC / FCFS (Burner)
@@ -62,9 +93,7 @@ export default function SniperConfig({
             onClick={() => setMode('PRESIGN')}
             disabled={isArmed}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${
-              mode === 'PRESIGN' 
-                ? 'bg-shift-cyan text-shift-navy shadow-sm' 
-                : 'text-shift-textMuted hover:text-white'
+              mode === 'PRESIGN' ? 'bg-shift-cyan text-shift-navy' : 'text-shift-textMuted hover:text-white'
             }`}
           >
             <ShieldCheck size={16} /> WL PHASE (Pre-Sign)
@@ -72,48 +101,84 @@ export default function SniperConfig({
         </div>
       </div>
 
-      <div className="space-y-4 mb-8">
+      {/* Main Parameters */}
+      <div className="space-y-4 mb-6">
         <div>
-          <label className="block text-sm text-shift-textMuted mb-2">Target Contract Address</label>
+          <label className="block text-xs text-shift-textMuted mb-2 font-mono uppercase">Target Contract Address</label>
           <input
             type="text"
             value={targetContract}
-            onChange={(e) => setTargetContract(e.target.value)}
+            onChange={(e) => handleContractChange(e.target.value)}
             disabled={isArmed}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-shift-lime transition-colors disabled:opacity-50"
+            placeholder="0x..."
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-shift-lime"
           />
         </div>
 
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm text-shift-textMuted mb-2">Mint Price (ETH)</label>
+            <label className="block text-xs text-shift-textMuted mb-2 font-mono uppercase flex items-center justify-between">
+              <span>Price (ETH)</span>
+              <Lock size={12} className="text-slate-500" />
+            </label>
             <input
               type="text"
               value={mintPrice}
-              onChange={(e) => setMintPrice(e.target.value)}
-              disabled={isArmed}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-shift-lime disabled:opacity-50"
+              readOnly
+              disabled
+              className="w-full bg-slate-950/80 border border-slate-800 rounded-lg p-3 font-mono text-sm text-shift-cyan"
             />
           </div>
           <div>
-            <label className="block text-sm text-shift-textMuted mb-2">Max Quantity</label>
+            <label className="block text-xs text-shift-textMuted mb-2 font-mono uppercase">Quantity</label>
             <input
               type="number"
               value={maxQuantity}
               onChange={(e) => setMaxQuantity(Number(e.target.value))}
               disabled={isArmed}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-shift-lime disabled:opacity-50"
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-shift-lime"
             />
           </div>
           <div>
-            <label className="block text-sm text-shift-textMuted mb-2">Function Name</label>
+            <label className="block text-xs text-shift-textMuted mb-2 font-mono uppercase flex items-center justify-between">
+              <span>Function</span>
+              <Lock size={12} className="text-slate-500" />
+            </label>
             <input
               type="text"
               value={functionName}
-              onChange={(e) => setFunctionName(e.target.value)}
-              disabled={isArmed}
-              placeholder="e.g. mint, claim"
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-shift-lime disabled:opacity-50"
+              readOnly
+              disabled
+              className="w-full bg-slate-950/80 border border-slate-800 rounded-lg p-3 font-mono text-sm text-shift-lime"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* EIP-1559 War Mode Controls */}
+      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 mb-6">
+        <div className="flex items-center gap-2 text-xs font-bold text-amber-400 mb-3">
+          <Flame size={16} /> WAR MODE: EIP-1559 GAS CONTROLS
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-[11px] text-shift-textMuted mb-1 font-mono">Max Fee (Gwei)</label>
+            <input
+              type="text"
+              value={maxFeeGwei}
+              onChange={(e) => setMaxFeeGwei(e.target.value)}
+              placeholder="e.g. 25"
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 font-mono text-xs text-white focus:border-amber-400 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] text-shift-textMuted mb-1 font-mono">Priority Tip (Gwei)</label>
+            <input
+              type="text"
+              value={priorityTipGwei}
+              onChange={(e) => setPriorityTipGwei(e.target.value)}
+              placeholder="e.g. 5"
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 font-mono text-xs text-amber-400 focus:border-amber-400 focus:outline-none"
             />
           </div>
         </div>
@@ -122,25 +187,13 @@ export default function SniperConfig({
       <button
         onClick={onToggleArm}
         disabled={loading}
-        className={`relative z-20 w-full font-black text-xl py-4 rounded-lg flex items-center justify-center gap-3 transition-all ${
-          isArmed
-            ? 'bg-red-500 hover:bg-red-600 text-white shadow-[0_0_20px_rgba(239,68,68,0.3)]'
-            : mode === 'PRESIGN'
-            ? 'bg-shift-cyan hover:bg-[#22a6e0] text-shift-navy shadow-[0_0_20px_rgba(56,189,248,0.2)]'
-            : 'bg-shift-lime hover:bg-shift-limeHover text-shift-navy shadow-[0_0_20px_rgba(197,224,0,0.2)]'
+        className={`w-full font-black text-xl py-4 rounded-lg flex items-center justify-center gap-3 transition-all ${
+          mode === 'PRESIGN'
+            ? 'bg-shift-cyan hover:bg-[#22a6e0] text-shift-navy'
+            : 'bg-shift-lime hover:bg-shift-limeHover text-shift-navy'
         }`}
       >
-        {loading ? (
-          'PROCESSING...'
-        ) : isArmed ? (
-          <>
-            <Square fill="currentColor" size={24} /> DISARM SNIPER
-          </>
-        ) : (
-          <>
-            <Play fill="currentColor" size={24} /> {mode === 'PRESIGN' ? 'SIGN & ARM SNIPER' : 'ARM BURNER'}
-          </>
-        )}
+        <Play fill="currentColor" size={24} /> {mode === 'PRESIGN' ? 'SIGN & ARM SNIPER' : 'ARM BURNER'}
       </button>
     </div>
   );
