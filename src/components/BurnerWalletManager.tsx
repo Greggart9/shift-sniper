@@ -3,9 +3,11 @@
 import { toast } from 'sonner';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAccount, useSendTransaction } from 'wagmi';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import { formatEther, isHex } from 'viem';
+import { formatEther, isHex, parseEther } from 'viem';
 import { publicClient } from '@/lib/viem';
+import { withdrawAllBurners, downloadWalletManifest, type WithdrawResult } from '@/lib/walletUtils';
 import { 
   Eye, 
   EyeOff, 
@@ -19,7 +21,10 @@ import {
   Plus,
   Check,
   KeyRound,
-  X
+  X,
+  Download,
+  ArrowDownToLine,
+  ArrowUpFromLine
 } from 'lucide-react';
 
 export interface BurnerAccount {
@@ -34,12 +39,21 @@ const ACTIVE_KEY = 'shift_active_burner_id';
 const MAX_WALLETS = 2;
 
 export default function BurnerWalletManager() {
+  const { address: connectedAddress } = useAccount();
+  const { sendTransactionAsync } = useSendTransaction();
+
   const [wallets, setWallets] = useState<BurnerAccount[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showKeys, setShowKeys] = useState<{ [id: string]: boolean }>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [balances, setBalances] = useState<{ [id: string]: string }>({});
   const [isFetching, setIsFetching] = useState(false);
+
+  // Fund/Withdraw state
+  const [fundAmount, setFundAmount] = useState('0.02');
+  const [isFunding, setIsFunding] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [withdrawResults, setWithdrawResults] = useState<WithdrawResult[]>([]);
 
   // Import Modal State
   const [showImportModal, setShowImportModal] = useState(false);
@@ -175,6 +189,66 @@ export default function BurnerWalletManager() {
     toast.info('Burner wallet removed.')
   };
 
+  // Send fundAmount from the connected wallet to every burner wallet
+  const handleFundAll = async () => {
+    if (wallets.length === 0) return;
+    let amount: bigint;
+    try {
+      amount = parseEther(fundAmount);
+    } catch {
+      toast.error('Invalid fund amount.');
+      return;
+    }
+    if (amount <= 0n) {
+      toast.error('Fund amount must be greater than 0.');
+      return;
+    }
+
+    setIsFunding(true);
+    let successCount = 0;
+    for (const wallet of wallets) {
+      try {
+        await sendTransactionAsync({ to: wallet.address, value: amount });
+        successCount++;
+      } catch (err: any) {
+        toast.error(`Failed to fund ${wallet.label}: ${err.shortMessage ?? 'transaction rejected'}`);
+      }
+    }
+    setIsFunding(false);
+    if (successCount > 0) {
+      toast.success(`Funded ${successCount}/${wallets.length} wallet(s) with ${fundAmount} ETH each.`);
+      fetchAllBalances();
+    }
+  };
+
+  // Sweep every burner wallet's balance back to the connected wallet
+  const handleWithdrawAll = async () => {
+    if (wallets.length === 0 || !connectedAddress) return;
+    if (!confirm(`Sweep all burner balances to your connected wallet (${connectedAddress})? This cannot be undone.`)) return;
+
+    setIsWithdrawing(true);
+    setWithdrawResults([]);
+    try {
+      const results = await withdrawAllBurners(wallets, connectedAddress);
+      setWithdrawResults(results);
+      const successCount = results.filter((r) => r.status === 'success').length;
+      toast.success(`Withdrawal complete: ${successCount}/${wallets.length} wallet(s) swept.`);
+      fetchAllBalances();
+    } catch (err) {
+      toast.error('Withdrawal failed unexpectedly.');
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
+  // Export all wallets (including private keys) as a downloadable JSON file
+  const handleExportManifest = () => {
+    if (wallets.length === 0) return;
+    if (!confirm('This file will contain your RAW PRIVATE KEYS in plain text. Anyone who gets this file can drain these wallets. Continue?')) return;
+    downloadWalletManifest(wallets);
+    toast.success('Wallet manifest downloaded.');
+  };
+
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
@@ -238,6 +312,64 @@ export default function BurnerWalletManager() {
           </button>
         </div>
       </div>
+
+      {wallets.length > 0 && (
+        <div className="mb-6 bg-slate-900/60 border border-slate-800 rounded-xl p-4 space-y-3">
+          <div className="text-xs font-bold text-shift-textMuted uppercase font-mono">Wallet Utilities</div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={fundAmount}
+                onChange={(e) => setFundAmount(e.target.value)}
+                placeholder="0.02"
+                className="w-24 bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-xs text-white focus:border-shift-lime focus:outline-none"
+              />
+              <span className="text-xs text-shift-textMuted">ETH each</span>
+              <button
+                onClick={handleFundAll}
+                disabled={isFunding || !connectedAddress}
+                className="flex items-center gap-1.5 bg-shift-lime hover:bg-shift-limeHover text-shift-navy font-bold py-2 px-3 rounded-lg text-xs transition-colors disabled:opacity-50"
+              >
+                <ArrowDownToLine size={14} /> {isFunding ? 'Funding...' : 'Fund All'}
+              </button>
+            </div>
+
+            <button
+              onClick={handleWithdrawAll}
+              disabled={isWithdrawing || !connectedAddress}
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-shift-cyan font-bold py-2 px-3 rounded-lg text-xs transition-colors disabled:opacity-50 border border-slate-700"
+            >
+              <ArrowUpFromLine size={14} /> {isWithdrawing ? 'Withdrawing...' : 'Withdraw All to Main'}
+            </button>
+
+            <button
+              onClick={handleExportManifest}
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-red-400 font-bold py-2 px-3 rounded-lg text-xs transition-colors border border-slate-700"
+            >
+              <Download size={14} /> Export Manifest
+            </button>
+          </div>
+
+          {!connectedAddress && (
+            <p className="text-[11px] text-amber-400">Connect a wallet to fund or withdraw — burners will sweep to your connected wallet.</p>
+          )}
+
+          {withdrawResults.length > 0 && (
+            <div className="pt-2 border-t border-slate-800 space-y-1">
+              {withdrawResults.map((r, i) => (
+                <div key={i} className="flex items-center gap-2 text-[11px] font-mono">
+                  <span className={r.status === 'success' ? 'text-shift-lime' : r.status === 'skipped' ? 'text-amber-400' : 'text-red-400'}>
+                    {r.status.toUpperCase()}
+                  </span>
+                  <span className="text-shift-textMuted truncate">{r.address}</span>
+                  <span className="text-shift-textMuted">— {r.detail}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {wallets.length === 0 ? (
         <div className="text-center py-12 border border-dashed border-slate-800 rounded-xl">

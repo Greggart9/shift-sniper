@@ -18,6 +18,9 @@ interface SniperConfigProps {
   setPriorityTipGwei: (val: string) => void;
   mode: 'BURNER' | 'PRESIGN';
   setMode: (val: 'BURNER' | 'PRESIGN') => void;
+  useAllWallets: boolean;
+  setUseAllWallets: (val: boolean) => void;
+  savedWalletCount: number;
   isArmed: boolean;
   loading: boolean;
   onToggleArm: () => void;
@@ -38,6 +41,9 @@ export default function SniperConfig({
   setPriorityTipGwei,
   mode,
   setMode,
+  useAllWallets,
+  setUseAllWallets,
+  savedWalletCount,
   isArmed,
   loading,
   onToggleArm,
@@ -100,6 +106,28 @@ export default function SniperConfig({
           </button>
         </div>
       </div>
+
+            {mode === 'BURNER' && (
+        <div className="mb-6 flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+          <div>
+            <label className="flex items-center gap-2 text-sm font-bold text-shift-textMain cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useAllWallets}
+                onChange={(e) => setUseAllWallets(e.target.checked)}
+                disabled={isArmed}
+                className="w-4 h-4 accent-shift-lime"
+              />
+              Snipe with all saved wallets
+            </label>
+            <p className="text-xs text-shift-textMuted mt-1 ml-6">
+              {useAllWallets
+                ? `Will sign and fire from all ${savedWalletCount} saved wallet(s), each independently.`
+                : 'Uses only the wallet marked "Active Sniper Target".'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Main Parameters */}
       <div className="space-y-4 mb-6">

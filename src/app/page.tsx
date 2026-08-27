@@ -1,27 +1,37 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount, useSignTransaction } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { encodeFunctionData, parseEther } from 'viem';
 import { toast } from 'sonner';
 
 import LandingPage from '@/components/LandingPage';
+import DoctorPanel from '@/components/DoctorPanel';
 import Sidebar from '@/components/Sidebar';
 import SniperConfig from '@/components/SniperConfig';
 import ActiveSnipesList from '@/components/ActiveSnipesList';
 import LiveTerminal from '@/components/LiveTerminal';
-import { signBurnerSnipe } from '@/lib/signBurnerTx';
+import { signBurnerSnipeFeeTiers } from '@/lib/signBurnerTx';
 
 export default function Home() {
   const { isConnected } = useAccount();
   const { signTransactionAsync } = useSignTransaction();
 
   const [mode, setMode] = useState<'BURNER' | 'PRESIGN'>('BURNER');
-  const [targetContract, setTargetContract] = useState('0x1234...abcd5678ef9012');
-  const [mintPrice, setMintPrice] = useState('0.05');
-  const [maxQuantity, setMaxQuantity] = useState(5);
-  const [functionName, setFunctionName] = useState('mint');
+  const [targetContract, setTargetContract] = useState('');
+  const [mintPrice, setMintPrice] = useState('0');
+  const [maxQuantity, setMaxQuantity] = useState(0);
+  const [functionName, setFunctionName] = useState('');
+
+  const [useAllWallets, setUseAllWallets] = useState(false);
+  const [savedWalletCount, setSavedWalletCount] = useState(0);
+
+  useEffect(() => {
+    const savedWalletsRaw = localStorage.getItem('shift_burner_wallets');
+    const wallets = savedWalletsRaw ? JSON.parse(savedWalletsRaw) : [];
+    setSavedWalletCount(wallets.length);
+  }, []);
   
   const [loading, setLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0); // Triggers active task list refresh
@@ -51,7 +61,7 @@ export default function Home() {
         priorityTipGwei,
       };
 
-      if (mode === 'BURNER') {
+    if (mode === 'BURNER') {
         const savedWalletsRaw = localStorage.getItem('shift_burner_wallets');
         const activeId = localStorage.getItem('shift_active_burner_id');
 
@@ -62,27 +72,38 @@ export default function Home() {
         }
 
         const wallets: { id: string; privateKey: `0x${string}` }[] = JSON.parse(savedWalletsRaw);
-        const activeWallet = wallets.find((w) => w.id === activeId) ?? wallets[0];
-
-        if (!activeWallet) {
-          addLog('❌ ERROR: No active burner wallet selected!');
+        if (wallets.length === 0) {
+          addLog('❌ ERROR: No burner wallets saved!');
           setLoading(false);
           return;
         }
 
-        addLog('🟡 Signing locally with active burner wallet... key never leaves the browser.');
+        const walletsToSign = useAllWallets
+          ? wallets
+          : [wallets.find((w) => w.id === activeId) ?? wallets[0]];
+
+        addLog(
+          useAllWallets
+            ? `🟡 Signing fee-bump ladders for ${walletsToSign.length} wallet(s) locally... keys never leave the browser.`
+            : '🟡 Signing fee-bump ladder locally... key never leaves the browser.'
+        );
+
         try {
-          const signed = await signBurnerSnipe({
-            privateKey: activeWallet.privateKey,
-            targetContract: targetContract as `0x${string}`,
-            quantity: maxQuantity,
-            fallbackPriceEth: mintPrice,
-            functionName,
-            maxFeeGwei,
-            priorityTipGwei,
-          });
-          payloadParams.signedPayloads = [signed.signedTransaction];
-          addLog('✅ Signed 1 transaction locally.');
+          const signedResults = await Promise.all(
+            walletsToSign.map((wallet) =>
+              signBurnerSnipeFeeTiers({
+                privateKey: wallet.privateKey,
+                targetContract: targetContract as `0x${string}`,
+                quantity: maxQuantity,
+                fallbackPriceEth: mintPrice,
+                functionName,
+                maxFeeGwei,
+                priorityTipGwei,
+              })
+            )
+          );
+          payloadParams.feeTiersBatch = signedResults.map((r) => r.feeTiers);
+          addLog(`✅ Signed ${signedResults.length} wallet(s), ${signedResults[0]?.feeTiers.length ?? 0} fee tier(s) each.`);
         } catch (signError: any) {
           addLog(`❌ Local signing failed: ${signError.message ?? 'Unknown error'}`);
           setLoading(false);
@@ -113,7 +134,7 @@ export default function Home() {
           });
 
           addLog('✅ Transaction signed successfully!');
-          payloadParams.signedPayloads = [signedTx];
+          payloadParams.feeTiersBatch = [[signedTx]];
           
         } catch (signError: any) {
           addLog(`❌ Signature rejected: ${signError.shortMessage || 'User denied request.'}`);
@@ -163,6 +184,8 @@ export default function Home() {
           </div>
         </header>
 
+        <DoctorPanel />
+
         {/* 1. Configuration Card */}
         <SniperConfig
           targetContract={targetContract}
@@ -179,7 +202,10 @@ export default function Home() {
           setPriorityTipGwei={setPriorityTipGwei}
           mode={mode}
           setMode={setMode}
-          isArmed={false} // Multi-task means config is never globally locked down
+          useAllWallets={useAllWallets}
+          setUseAllWallets={setUseAllWallets}
+          savedWalletCount={savedWalletCount}
+          isArmed={false}
           loading={loading}
           onToggleArm={handleArmSniper}
         />

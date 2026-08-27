@@ -9,11 +9,11 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { targetContract, mintPriceEth, maxQuantity, functionName, mode, signedPayloads } = body;
+    const { targetContract, mintPriceEth, maxQuantity, functionName, mode, feeTiersBatch } = body;
 
-    const payloads: string[] = Array.isArray(signedPayloads) ? signedPayloads : [signedPayloads].filter(Boolean);
+    const batches: string[][] = Array.isArray(feeTiersBatch) ? feeTiersBatch : [];
 
-    const taskIds = await armSniperBatch(targetContract, mintPriceEth, maxQuantity, functionName, mode, payloads);
+    const taskIds = await armSniperBatch(targetContract, mintPriceEth, maxQuantity, functionName, mode, batches);
 
     return NextResponse.json({ success: true, taskId: taskIds[0], taskIds });
   } catch (error: any) {
