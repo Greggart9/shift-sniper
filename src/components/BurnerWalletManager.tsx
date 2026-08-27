@@ -3,11 +3,19 @@
 import { toast } from "sonner";
 
 import { useState, useEffect, useCallback } from "react";
-import { useAccount, useSendTransaction } from "wagmi";
+import { useAccount, useChainId, useSendTransaction } from "wagmi";
+import { DEFAULT_CHAIN_ID, getChainConfig, SUPPORTED_CHAINS } from "@/lib/chains";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { formatEther, isHex, parseEther } from "viem";
+import { formatEther, isAddress, isHex, parseEther } from "viem";
 import { publicClient } from "@/lib/viem";
-import { withdrawAllBurners, downloadWalletManifest, type WithdrawResult } from "@/lib/walletUtils";
+import {
+  withdrawAllBurners,
+  sendAllBurnersToRecipient,
+  downloadWalletManifest,
+  type WithdrawResult,
+  sendNftsFromBurner,
+  type NftTransferResult,
+} from "@/lib/walletUtils";
 import {
   Eye,
   EyeOff,
@@ -25,6 +33,7 @@ import {
   Download,
   ArrowDownToLine,
   ArrowUpFromLine,
+  ImageUp,
 } from "lucide-react";
 
 export interface BurnerAccount {
@@ -40,6 +49,11 @@ const MAX_WALLETS = 2;
 
 export default function BurnerWalletManager() {
   const { address: connectedAddress } = useAccount();
+  const connectedChainId = useChainId();
+  const chainId = SUPPORTED_CHAINS.some((chain) => chain.id === connectedChainId)
+    ? connectedChainId
+    : DEFAULT_CHAIN_ID;
+  const chainLabel = getChainConfig(chainId).label;
   const { sendTransactionAsync } = useSendTransaction();
 
   const [wallets, setWallets] = useState<BurnerAccount[]>([]);
@@ -54,6 +68,10 @@ export default function BurnerWalletManager() {
   const [isFunding, setIsFunding] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawResults, setWithdrawResults] = useState<WithdrawResult[]>([]);
+  const [recipientAddress, setRecipientAddress] = useState("");
+  const [nftContract, setNftContract] = useState("");
+  const [nftScope, setNftScope] = useState<"ACTIVE" | "ALL">("ACTIVE");
+  const [nftResults, setNftResults] = useState<NftTransferResult[]>([]);
 
   // Import Modal State
   const [showImportModal, setShowImportModal] = useState(false);
@@ -233,13 +251,102 @@ export default function BurnerWalletManager() {
     setIsWithdrawing(true);
     setWithdrawResults([]);
     try {
-      const results = await withdrawAllBurners(wallets, connectedAddress);
+      const results = await withdrawAllBurners(wallets, connectedAddress, chainId);
       setWithdrawResults(results);
       const successCount = results.filter((r) => r.status === "success").length;
       toast.success(`Withdrawal complete: ${successCount}/${wallets.length} wallet(s) swept.`);
       fetchAllBalances();
     } catch (err) {
       toast.error("Withdrawal failed unexpectedly.");
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
+  const handleSendAllToAddress = async () => {
+    const recipient = recipientAddress.trim();
+    if (!isAddress(recipient)) {
+      toast.error("Enter a valid recipient wallet address.");
+      return;
+    }
+    if (wallets.some((wallet) => wallet.address.toLowerCase() === recipient.toLowerCase())) {
+      toast.error("Recipient must be different from the burner wallets.");
+      return;
+    }
+    if (!confirm(`Send each burner balance, minus gas, to ${recipient}? This cannot be undone.`)) return;
+
+    setIsWithdrawing(true);
+    setWithdrawResults([]);
+    try {
+      const results = await sendAllBurnersToRecipient(wallets, recipient, chainId);
+      setWithdrawResults(results);
+      const successCount = results.filter((result) => result.status === "success").length;
+      toast.success(`Transfer complete: ${successCount}/${wallets.length} wallet(s) sent.`);
+      fetchAllBalances();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Transfer failed unexpectedly.");
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
+  const handleSendActiveToAddress = async () => {
+    const recipient = recipientAddress.trim();
+    const activeWallet = wallets.find((wallet) => wallet.id === activeId) ?? wallets[0];
+    if (!activeWallet) return;
+    if (!isAddress(recipient)) {
+      toast.error("Enter a valid recipient wallet address.");
+      return;
+    }
+    if (activeWallet.address.toLowerCase() === recipient.toLowerCase()) {
+      toast.error("Recipient must be different from the active burner.");
+      return;
+    }
+    if (!confirm(`Send ${activeWallet.label}'s balance, minus gas, to ${recipient}? This cannot be undone.`)) return;
+
+    setIsWithdrawing(true);
+    setWithdrawResults([]);
+    try {
+      const results = await sendAllBurnersToRecipient([activeWallet], recipient, chainId);
+      setWithdrawResults(results);
+      toast.success(`${activeWallet.label} transfer complete.`);
+      fetchAllBalances();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Transfer failed unexpectedly.");
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
+  const handleSendNfts = async () => {
+    const activeWallet = wallets.find((wallet) => wallet.id === activeId) ?? wallets[0];
+    if (!activeWallet || !isAddress(recipientAddress) || !isAddress(nftContract)) {
+      toast.error("Enter a recipient and NFT contract address.");
+      return;
+    }
+    if (activeWallet.address.toLowerCase() === recipientAddress.trim().toLowerCase()) {
+      toast.error("Recipient must be different from the active burner.");
+      return;
+    }
+    const sourceWallets = nftScope === "ALL" ? wallets : [activeWallet];
+    if (!confirm(`Transfer all ERC-721 NFTs in this contract from ${nftScope === "ALL" ? "all burners" : activeWallet.label}? This cannot be undone.`)) {
+      return;
+    }
+
+    setIsWithdrawing(true);
+    setNftResults([]);
+    try {
+      const resultGroups = await Promise.all(
+        sourceWallets.map((wallet) =>
+          sendNftsFromBurner(wallet, recipientAddress.trim(), nftContract.trim(), "ERC721", chainId, "1"),
+        ),
+      );
+      const results = resultGroups.flat();
+      setNftResults(results);
+      const successCount = results.filter((result) => result.status === "success").length;
+      toast.success(`NFT transfer submitted: ${successCount}/${results.length} token(s).`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "NFT transfer failed.");
     } finally {
       setIsWithdrawing(false);
     }
@@ -348,6 +455,64 @@ export default function BurnerWalletManager() {
               <ArrowUpFromLine size={14} /> {isWithdrawing ? "Withdrawing..." : "Withdraw All to Main"}
             </button>
 
+            <div className="flex flex-wrap items-center gap-2 w-full">
+              <input
+                type="text"
+                value={recipientAddress}
+                onChange={(event) => setRecipientAddress(event.target.value)}
+                placeholder="0x recipient address"
+                className="min-w-70 flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-xs text-white focus:border-shift-cyan focus:outline-none"
+                aria-label="Recipient wallet address"
+              />
+              <button
+                onClick={() => void handleSendAllToAddress()}
+                disabled={isWithdrawing || wallets.length === 0}
+                className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-shift-cyan font-bold py-2 px-3 rounded-lg text-xs transition-colors disabled:opacity-50 border border-slate-700"
+              >
+                <ArrowUpFromLine size={14} /> {isWithdrawing ? "Sending..." : "Send All to Address"}
+              </button>
+              <button
+                onClick={() => void handleSendActiveToAddress()}
+                disabled={isWithdrawing || wallets.length === 0}
+                className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-shift-lime font-bold py-2 px-3 rounded-lg text-xs transition-colors disabled:opacity-50 border border-slate-700"
+              >
+                <ArrowUpFromLine size={14} /> Send Active
+              </button>
+            </div>
+
+            <div className="w-full border-t border-slate-800 pt-3 space-y-2">
+              <div className="text-[11px] font-bold text-shift-textMuted uppercase font-mono">Send All NFTs to Recipient</div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                <input
+                  type="text"
+                  value={nftContract}
+                  onChange={(event) => setNftContract(event.target.value)}
+                  placeholder="NFT contract address"
+                  className="bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-xs text-white focus:border-shift-cyan focus:outline-none"
+                  aria-label="NFT contract address"
+                />
+                <select
+                  value={nftScope}
+                  onChange={(event) => setNftScope(event.target.value as "ACTIVE" | "ALL")}
+                  className="bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-xs text-white"
+                  aria-label="NFT source wallets"
+                >
+                  <option value="ACTIVE">Active burner</option>
+                  <option value="ALL">All burners</option>
+                </select>
+                <div className="bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-xs text-slate-400">
+                  ERC-721 Enumerable
+                </div>
+              </div>
+              <button
+                onClick={() => void handleSendNfts()}
+                disabled={isWithdrawing || wallets.length === 0}
+                className="flex items-center gap-1.5 bg-shift-cyan hover:bg-cyan-400 text-shift-navy font-bold py-2 px-3 rounded-lg text-xs transition-colors disabled:opacity-50"
+              >
+                <ImageUp size={14} /> {isWithdrawing ? "Transferring..." : "Send All NFTs"}
+              </button>
+            </div>
+
             <button
               onClick={handleExportManifest}
               className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-red-400 font-bold py-2 px-3 rounded-lg text-xs transition-colors border border-slate-700"
@@ -379,6 +544,21 @@ export default function BurnerWalletManager() {
                   </span>
                   <span className="text-shift-textMuted truncate">{r.address}</span>
                   <span className="text-shift-textMuted">— {r.detail}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {nftResults.length > 0 && (
+            <div className="pt-2 border-t border-slate-800 space-y-1">
+              {nftResults.map((result, index) => (
+                <div key={`${result.tokenId}-${index}`} className="flex items-center gap-2 text-[11px] font-mono">
+                  <span className={result.status === "success" ? "text-shift-lime" : result.status === "skipped" ? "text-amber-400" : "text-red-400"}>
+                    {result.status.toUpperCase()}
+                  </span>
+                  <span className="text-white">Token #{result.tokenId}</span>
+                  <span className="text-shift-textMuted">— {result.detail}</span>
+                  {result.txHash && <span className="text-shift-cyan truncate">{result.txHash}</span>}
                 </div>
               ))}
             </div>

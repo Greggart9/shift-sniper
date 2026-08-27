@@ -543,6 +543,8 @@ export default function Home() {
         priorityTipGwei,
       };
 
+      const transactionsForSimulation: string[] = [];
+
       // Burner mode
 
       if (mode === "BURNER") {
@@ -605,6 +607,7 @@ export default function Home() {
           );
 
           payloadParams.feeTiersBatch = signedResults.map((result) => result.feeTiers);
+          transactionsForSimulation.push(...signedResults.map((result) => result.feeTiers[0]));
 
           addLog(
             `✅ Signed ${signedResults.length} wallet(s), ${signedResults[0]?.feeTiers.length ?? 0} fee tier(s) each.`,
@@ -657,6 +660,8 @@ export default function Home() {
             gas: 300000n,
           });
 
+          transactionsForSimulation.push(signedTx);
+
           addLog("✅ Transaction signed successfully!");
 
           payloadParams.feeTiersBatch = [[signedTx]];
@@ -667,6 +672,33 @@ export default function Home() {
 
           return;
         }
+      }
+
+      addLog("🔎 Simulating the first signed transaction for each wallet...");
+      const simulations = await Promise.all(
+        transactionsForSimulation.map(async (serializedTransaction) => {
+          try {
+            const response = await fetch("/api/simulate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ serializedTransaction, chainId: selectedChainId }),
+            });
+            return (await response.json()) as { status?: string; error?: string };
+          } catch {
+            return { status: "UNAVAILABLE", error: "Simulation service was unreachable." };
+          }
+        }),
+      );
+
+      const reverted = simulations.filter((result) => result.status === "REVERT");
+      const passed = simulations.filter((result) => result.status === "PASS");
+      if (reverted.length > 0) {
+        addLog(`⚠️ Simulation reverted for ${reverted.length} wallet(s). This can be expected before a scheduled phase or for WL authorization.`);
+        toast.warning("Simulation reported a revert. Review the target and mint phase before arming.");
+      } else if (passed.length === simulations.length) {
+        addLog(`✅ Simulation passed for ${passed.length} wallet(s).`);
+      } else {
+        addLog("⚠️ Simulation was unavailable; the signed payload can still be armed.");
       }
 
       // Create server task

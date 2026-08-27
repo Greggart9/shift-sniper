@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { armSniperBatch, disarmSniper, getActiveTasks, getAllSniperStatuses, getSniperStatus } from "@/server/sniper";
+import {
+  armSniperBatch,
+  disarmSniper,
+  getActiveTasks,
+  getAllSniperStatuses,
+  getSniperStatus,
+  retrySniper,
+} from "@/server/sniper";
 import { DEFAULT_CHAIN_ID, getChainConfig } from "@/lib/chains";
 
 export async function GET(request: Request) {
@@ -183,6 +190,32 @@ export async function DELETE(request: Request) {
         success: false,
         error: message,
       },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const { taskId } = (await request.json()) as { taskId?: string };
+
+    if (!taskId) {
+      return NextResponse.json({ success: false, error: "Missing taskId." }, { status: 400 });
+    }
+
+    const retryTaskId = retrySniper(taskId);
+
+    if (!retryTaskId) {
+      return NextResponse.json(
+        { success: false, error: "Only failed tasks with signed transactions can be retried." },
+        { status: 409 },
+      );
+    }
+
+    return NextResponse.json({ success: true, taskId: retryTaskId });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Failed to retry task." },
       { status: 500 },
     );
   }

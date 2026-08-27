@@ -5,6 +5,7 @@ import {
   recoverTransactionAddress,
   type Address,
   type Hex,
+  stringToHex,
 } from "viem";
 import { randomUUID } from "crypto";
 import { DEFAULT_CHAIN_ID, getChainConfig } from "@/lib/chains";
@@ -20,10 +21,16 @@ const FINAL_WAIT_MS = 30_000;
 
 const POLL_INTERVAL_MS = 1_500;
 
+const RPC_BROADCAST_TIMEOUT_MS = 4_000;
+
 const MAX_TRADE_HISTORY = 1_000;
 
 // ERC-721 Transfer event: Transfer(address indexed from, address indexed to, uint256 indexed tokenId).
 const ERC721_TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a9df523b3ef" as Hex;
+
+const ERC1155_TRANSFER_SINGLE_TOPIC = keccak256(
+  stringToHex("TransferSingle(address,address,address,uint256,uint256)"),
+);
 
 // Internal status of a sniper task.
 export type SniperStatus = "ARMED" | "WAITING" | "BROADCASTING" | "CONFIRMED" | "FAILED" | "CANCELLED";
@@ -382,13 +389,22 @@ async function broadcastToRpcPool(serializedTransaction: Hex, rpcUrls: string[])
 
   const results = await Promise.allSettled(
     rpcUrls.map(async (url) => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), RPC_BROADCAST_TIMEOUT_MS);
+
+      try {
       const response = await fetch(url, {
         method: "POST",
         headers: {
           "content-type": "application/json",
         },
         body,
+        signal: controller.signal,
       });
+
+      if (!response.ok) {
+        throw new Error(`RPC returned HTTP ${response.status}`);
+      }
 
       const payload = (await response.json()) as {
         result?: string;
@@ -412,6 +428,9 @@ async function broadcastToRpcPool(serializedTransaction: Hex, rpcUrls: string[])
       }
 
       throw new Error(message);
+      } finally {
+        clearTimeout(timeout);
+      }
     }),
   );
 
@@ -522,9 +541,11 @@ function extractMintedTokenIds(
     logs: readonly {
       address: Address;
       topics: readonly Hex[];
+      data: Hex;
     }[];
   },
   signerAddress?: Address,
+  targetContract?: Address,
 ): string[] {
   if (!signerAddress) {
     return [];
@@ -535,7 +556,27 @@ function extractMintedTokenIds(
   const signerTopic = signerAddress.toLowerCase().replace(/^0x/, "").padStart(64, "0");
 
   for (const log of receipt.logs) {
+    if (targetContract && log.address.toLowerCase() !== targetContract.toLowerCase()) {
+      continue;
+    }
+
     if (log.topics[0]?.toLowerCase() !== ERC721_TRANSFER_TOPIC.toLowerCase()) {
+      if (log.topics[0]?.toLowerCase() !== ERC1155_TRANSFER_SINGLE_TOPIC.toLowerCase()) {
+        continue;
+      }
+
+      if (log.topics.length < 4 || log.topics[3]?.toLowerCase().replace(/^0x/, "") !== signerTopic) {
+        continue;
+      }
+
+      const tokenId = log.data?.slice(0, 66);
+      if (tokenId) {
+        try {
+          tokenIds.push(BigInt(tokenId).toString());
+        } catch {
+          // Ignore malformed token IDs.
+        }
+      }
       continue;
     }
 
@@ -570,7 +611,7 @@ function extractMintedTokenIds(
 async function buildTradeResult(task: SnipeTask, receipt: TransactionReceipt, bumpTier: number): Promise<TradeLog> {
   const successful = receipt.status !== "reverted";
 
-  const tokenIds = successful ? extractMintedTokenIds(receipt, task.signerAddress) : [];
+  const tokenIds = successful ? extractMintedTokenIds(receipt, task.signerAddress, task.targetContract) : [];
 
   // Prefer Transfer events for quantity, falling back to the requested quantity when unavailable.
   const mintedQuantity = tokenIds.length > 0 ? tokenIds.length : successful ? task.maxQuantity : 0;
@@ -925,6 +966,10 @@ export async function armSniper(
 
   const createdAt = nowIso();
 
+  const signerAddress = await recoverTransactionAddress({
+    serializedTransaction: feeTiers[0] as Parameters<typeof recoverTransactionAddress>[0]["serializedTransaction"],
+  });
+
   const task: SnipeTask = {
     id: taskId,
 
@@ -954,6 +999,8 @@ export async function armSniper(
 
     collectionSymbol,
 
+    signerAddress,
+
     status: startAt > Date.now() ? "WAITING" : "ARMED",
 
     statusMessage:
@@ -979,6 +1026,33 @@ export async function armSniper(
   );
 
   return task.id;
+}
+
+export function retrySniper(taskId: string): string | undefined {
+  const original = taskStatuses.get(taskId);
+
+  if (!original || original.status !== "FAILED" || original.feeTiers.length === 0) {
+    return undefined;
+  }
+
+  const retryId = randomUUID();
+  const createdAt = nowIso();
+  const retryTask: SnipeTask = {
+    ...original,
+    id: retryId,
+    status: "ARMED",
+    statusMessage: "Retry task armed. Rechecking wallet freshness before broadcast.",
+    errorMessage: undefined,
+    currentTier: undefined,
+    broadcastTxHashes: [],
+    createdAt,
+    updatedAt: createdAt,
+  };
+
+  taskStatuses.set(retryId, retryTask);
+  activeTasks.set(retryId, retryTask);
+  scheduleTask(retryTask);
+  return retryId;
 }
 
 export async function armSniperBatch(

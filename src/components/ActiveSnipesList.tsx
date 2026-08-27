@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Activity, Trash2, RefreshCw, Zap, ShieldCheck } from "lucide-react";
+import { Activity, Trash2, RefreshCw, Zap, ShieldCheck, ExternalLink, Clock3, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { getChainConfig } from "@/lib/chains";
 
@@ -14,6 +14,11 @@ interface ActiveTask {
   maxQuantity: number;
   targetFunctionName: string;
   executionMode: "BURNER" | "PRESIGN";
+  status: "ARMED" | "WAITING" | "BROADCASTING" | "CONFIRMED" | "FAILED" | "CANCELLED";
+  statusMessage?: string;
+  scheduledFor?: string;
+  currentTier?: number;
+  broadcastTxHashes?: string[];
 }
 
 interface ActiveSnipesListProps {
@@ -25,13 +30,18 @@ export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed }: Act
   const [tasks, setTasks] = useState<ActiveTask[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const formatSchedule = (scheduledFor?: string) => {
+    if (!scheduledFor) return "Ready now";
+    return `Launch ${new Date(scheduledFor).toLocaleTimeString()}`;
+  };
+
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/sniper");
       const data = await res.json();
       if (data.success) {
-        setTasks(data.tasks);
+        setTasks(Array.isArray(data.statuses) ? data.statuses : data.tasks);
       }
     } catch (err) {
       console.error("Failed to fetch active tasks:", err);
@@ -41,9 +51,12 @@ export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed }: Act
   }, []);
 
   useEffect(() => {
-    fetchTasks();
+    const initialFetch = setTimeout(() => void fetchTasks(), 0);
     const interval = setInterval(fetchTasks, 5000); // Poll every 5 seconds
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initialFetch);
+      clearInterval(interval);
+    };
   }, [fetchTasks, refreshTrigger]);
 
   const handleDisarm = async (taskId: string) => {
@@ -59,6 +72,25 @@ export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed }: Act
       }
     } catch (err) {
       console.error("Failed to disarm task:", err);
+    }
+  };
+
+  const handleRetry = async (taskId: string) => {
+    try {
+      const res = await fetch("/api/sniper", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        toast.error(data.error ?? "Could not retry task.");
+        return;
+      }
+      await fetchTasks();
+      toast.success("Retry task armed. Wallet freshness will be checked before broadcast.");
+    } catch {
+      toast.error("Could not reach the sniper engine.");
     }
   };
 
@@ -109,15 +141,49 @@ export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed }: Act
                     <span className="text-white">{task.mintPriceEth} ETH</span> | Qty:{" "}
                     <span className="text-white">{task.maxQuantity}</span>
                   </div>
+                  <div className="flex flex-wrap items-center gap-3 text-[11px] mt-2">
+                    <span className={task.status === "BROADCASTING" ? "text-amber-400" : "text-shift-cyan"}>
+                      {task.status}
+                      {task.currentTier !== undefined ? ` · tier ${task.currentTier + 1}` : ""}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-slate-500">
+                      <Clock3 size={12} /> {formatSchedule(task.scheduledFor)}
+                    </span>
+                    {task.broadcastTxHashes?.map((hash) => (
+                      <a
+                        key={hash}
+                        href={`https://explorer.testnet.chain.robinhood.com/tx/${hash}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-shift-lime hover:underline"
+                        title={hash}
+                      >
+                        TX <ExternalLink size={11} />
+                      </a>
+                    ))}
+                  </div>
+                  {task.statusMessage && <div className="text-slate-500 text-[11px] mt-1">{task.statusMessage}</div>}
                 </div>
               </div>
 
-              <button
-                onClick={() => handleDisarm(task.id)}
-                className="flex items-center gap-1 bg-red-950/40 border border-red-900/50 hover:bg-red-900/50 text-red-400 px-3 py-1.5 rounded-md transition-colors"
-              >
-                <Trash2 size={14} /> Disarm
-              </button>
+              <div className="flex items-center gap-2">
+                {task.status === "FAILED" && (
+                  <button
+                    onClick={() => void handleRetry(task.id)}
+                    className="flex items-center gap-1 bg-amber-950/40 border border-amber-900/50 hover:bg-amber-900/50 text-amber-400 px-3 py-1.5 rounded-md transition-colors"
+                  >
+                    <RotateCcw size={14} /> Retry
+                  </button>
+                )}
+                {!["FAILED", "CONFIRMED", "CANCELLED"].includes(task.status) && (
+                  <button
+                    onClick={() => void handleDisarm(task.id)}
+                    className="flex items-center gap-1 bg-red-950/40 border border-red-900/50 hover:bg-red-900/50 text-red-400 px-3 py-1.5 rounded-md transition-colors"
+                  >
+                    <Trash2 size={14} /> Disarm
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
