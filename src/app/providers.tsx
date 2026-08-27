@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { WagmiProvider } from 'wagmi';
-import { getDefaultConfig, RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
-import '@rainbow-me/rainbowkit/styles.css';
-import { robinhoodChain } from '../lib/viem';
+import * as React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { WagmiProvider } from "wagmi";
+import { getDefaultConfig, RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
+import "@rainbow-me/rainbowkit/styles.css";
+import { arbitrumOneChain, baseChain, ethereumChain, inkChain, robinhoodChain } from "@/lib/chains";
 
 // Setup Wagmi + RainbowKit Configuration
 const config = getDefaultConfig({
-  appName: 'Shift Sniper',
+  appName: "Shift Sniper",
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID as string,
-  chains: [robinhoodChain],
+  chains: [robinhoodChain, ethereumChain, baseChain, arbitrumOneChain, inkChain],
   ssr: true, // Required for Next.js App Router
 });
 
@@ -21,13 +21,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider 
+        <RainbowKitProvider
           theme={darkTheme({
-            accentColor: '#C5E000', // Shift Lime
-            accentColorForeground: '#0F172A', // Shift Navy
-            borderRadius: 'medium',
-            fontStack: 'system',
-            overlayBlur: 'small',
+            accentColor: "#C5E000", // Shift Lime
+            accentColorForeground: "#0F172A", // Shift Navy
+            borderRadius: "medium",
+            fontStack: "system",
+            overlayBlur: "small",
           })}
         >
           {children}

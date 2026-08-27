@@ -1,12 +1,47 @@
-import { encodeFunctionData, type Address, type PublicClient } from 'viem';
+import { encodeFunctionData, type Address, type PublicClient } from "viem";
 
-export const SEADROP_ADDRESS = '0x00005EA00Ac477B1030CE78506496e8C2dE24bf5' as Address;
-export const OPENSEA_FEE_RECIPIENT = '0x0000a26b00c1F0DF003000390027140000fAa719' as Address;
+export const SEADROP_ADDRESS = "0x00005EA00Ac477B1030CE78506496e8C2dE24bf5" as Address;
+export const OPENSEA_FEE_RECIPIENT = "0x0000a26b00c1F0DF003000390027140000fAa719" as Address;
 
 export const seaDropAbi = [
-  { name: 'getPublicDrop', type: 'function', stateMutability: 'view', inputs: [{ name: 'nftContract', type: 'address' }], outputs: [{ type: 'tuple', components: [{ name: 'mintPrice', type: 'uint80' }, { name: 'startTime', type: 'uint48' }, { name: 'endTime', type: 'uint48' }, { name: 'maxTotalMintableByWallet', type: 'uint16' }, { name: 'feeBps', type: 'uint16' }, { name: 'restrictFeeRecipients', type: 'bool' }] }] },
-  { name: 'getAllowedFeeRecipients', type: 'function', stateMutability: 'view', inputs: [{ name: 'nftContract', type: 'address' }], outputs: [{ type: 'address[]' }] },
-  { name: 'mintPublic', type: 'function', stateMutability: 'payable', inputs: [{ name: 'nftContract', type: 'address' }, { name: 'feeRecipient', type: 'address' }, { name: 'minterIfNotPayer', type: 'address' }, { name: 'quantity', type: 'uint256' }], outputs: [] },
+  {
+    name: "getPublicDrop",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "nftContract", type: "address" }],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "mintPrice", type: "uint80" },
+          { name: "startTime", type: "uint48" },
+          { name: "endTime", type: "uint48" },
+          { name: "maxTotalMintableByWallet", type: "uint16" },
+          { name: "feeBps", type: "uint16" },
+          { name: "restrictFeeRecipients", type: "bool" },
+        ],
+      },
+    ],
+  },
+  {
+    name: "getAllowedFeeRecipients",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "nftContract", type: "address" }],
+    outputs: [{ type: "address[]" }],
+  },
+  {
+    name: "mintPublic",
+    type: "function",
+    stateMutability: "payable",
+    inputs: [
+      { name: "nftContract", type: "address" },
+      { name: "feeRecipient", type: "address" },
+      { name: "minterIfNotPayer", type: "address" },
+      { name: "quantity", type: "uint256" },
+    ],
+    outputs: [],
+  },
 ] as const;
 
 type PublicDrop = {
@@ -17,19 +52,20 @@ type PublicDrop = {
   restrictFeeRecipients: boolean;
 };
 
-/**
- * Reads a SeaDrop collection's public-stage config directly from the shared
- * SeaDrop contract and builds the ready-to-sign `mintPublic` call.
- * Returns null if the target contract isn't a SeaDrop collection.
- * Works from the browser or the server — just pass in whichever publicClient
- * you already have.
- */
+function isRpcConnectionError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+
+  const message = error.message.toLowerCase();
+  return ["fetch", "network", "timeout", "connection", "econn", "http request"].some((term) => message.includes(term));
+}
+
+// Read a SeaDrop collection's public-stage config and build its ready-to-sign mintPublic call.
 export async function buildSeaDropPlan(publicClient: PublicClient, nftContract: Address, quantity: number) {
   try {
     const rawDrop = await publicClient.readContract({
       address: SEADROP_ADDRESS,
       abi: seaDropAbi,
-      functionName: 'getPublicDrop',
+      functionName: "getPublicDrop",
       args: [nftContract],
     });
     const drop = rawDrop as unknown as PublicDrop;
@@ -40,18 +76,18 @@ export async function buildSeaDropPlan(publicClient: PublicClient, nftContract: 
     const allowed = await publicClient.readContract({
       address: SEADROP_ADDRESS,
       abi: seaDropAbi,
-      functionName: 'getAllowedFeeRecipients',
+      functionName: "getAllowedFeeRecipients",
       args: [nftContract],
     });
     const feeRecipient = allowed[0] ?? (drop.restrictFeeRecipients ? undefined : OPENSEA_FEE_RECIPIENT);
-    if (!feeRecipient) throw new Error('This SeaDrop collection has no allowed fee recipient.');
+    if (!feeRecipient) throw new Error("This SeaDrop collection has no allowed fee recipient.");
 
     return {
       to: SEADROP_ADDRESS,
       data: encodeFunctionData({
         abi: seaDropAbi,
-        functionName: 'mintPublic',
-        args: [nftContract, feeRecipient, '0x0000000000000000000000000000000000000000', BigInt(quantity)],
+        functionName: "mintPublic",
+        args: [nftContract, feeRecipient, "0x0000000000000000000000000000000000000000", BigInt(quantity)],
       }),
       value: drop.mintPrice * BigInt(quantity),
       startsAt: Number(drop.startTime) * 1_000,
@@ -59,7 +95,14 @@ export async function buildSeaDropPlan(publicClient: PublicClient, nftContract: 
       mintPriceEth: (Number(drop.mintPrice) / 1e18).toString(),
     };
   } catch (error) {
-    if (error instanceof Error && (error.message.includes('per-wallet limit') || error.message.includes('allowed fee recipient'))) {
+    if (isRpcConnectionError(error)) {
+      throw new Error(`SeaDrop RPC request failed: ${error instanceof Error ? error.message : "Unknown RPC error."}`);
+    }
+
+    if (
+      error instanceof Error &&
+      (error.message.includes("per-wallet limit") || error.message.includes("allowed fee recipient"))
+    ) {
       throw error;
     }
     return null;

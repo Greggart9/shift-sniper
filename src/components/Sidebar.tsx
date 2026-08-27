@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Activity, Settings, Clock, FlaskConical, Wallet, Crosshair, BookOpen } from 'lucide-react';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Activity, Settings, Clock, FlaskConical, Wallet, Crosshair, BookOpen } from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
 
   const navItems = [
-    { name: 'Sniper Cockpit', href: '/', icon: Crosshair },
-    { name: 'Burner Wallet', href: '/burner', icon: Wallet },
-    { name: 'Instructions & Rules', href: '/instructions', icon: BookOpen },
-    { name: 'Active Snipes', href: '#', icon: Activity },
-    { name: 'History', href: '/history', icon: Clock },
-    { name: 'Settings', href: '#', icon: Settings },
+    { name: "Sniper Cockpit", href: "/", icon: Crosshair },
+    { name: "Burner Wallet", href: "/burner", icon: Wallet },
+    { name: "Instructions & Rules", href: "/instructions", icon: BookOpen },
+    { name: "Active Snipes", href: "#", icon: Activity },
+    { name: "History", href: "/history", icon: Clock },
+    { name: "Settings", href: "#", icon: Settings },
   ];
 
   return (
@@ -30,13 +30,13 @@ export default function Sidebar() {
           const isActive = pathname === item.href;
           const Icon = item.icon;
           return (
-            <Link 
-              key={item.name} 
+            <Link
+              key={item.name}
               href={item.href}
               className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${
-                isActive 
-                  ? 'text-shift-lime bg-slate-800/50 border-shift-lime/20' 
-                  : 'text-shift-textMuted hover:text-white border-transparent'
+                isActive
+                  ? "text-shift-lime bg-slate-800/50 border-shift-lime/20"
+                  : "text-shift-textMuted hover:text-white border-transparent"
               }`}
             >
               <Icon size={20} />
@@ -51,9 +51,7 @@ export default function Sidebar() {
           <FlaskConical size={16} />
           <span className="font-bold">Testing Mode</span>
         </div>
-        <p className="text-shift-textMuted text-xs">
-          NFT Gate temporarily bypassed for development.
-        </p>
+        <p className="text-shift-textMuted text-xs">NFT Gate temporarily bypassed for development.</p>
       </div>
     </aside>
   );

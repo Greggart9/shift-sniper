@@ -1,22 +1,22 @@
-'use client';
+"use client";
 
-import { toast } from 'sonner';
+import { toast } from "sonner";
 
-import { useState, useEffect, useCallback } from 'react';
-import { useAccount, useSendTransaction } from 'wagmi';
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import { formatEther, isHex, parseEther } from 'viem';
-import { publicClient } from '@/lib/viem';
-import { withdrawAllBurners, downloadWalletManifest, type WithdrawResult } from '@/lib/walletUtils';
-import { 
-  Eye, 
-  EyeOff, 
-  Copy, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Wallet, 
-  Trash2, 
-  RefreshCw, 
+import { useState, useEffect, useCallback } from "react";
+import { useAccount, useSendTransaction } from "wagmi";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { formatEther, isHex, parseEther } from "viem";
+import { publicClient } from "@/lib/viem";
+import { withdrawAllBurners, downloadWalletManifest, type WithdrawResult } from "@/lib/walletUtils";
+import {
+  Eye,
+  EyeOff,
+  Copy,
+  AlertTriangle,
+  CheckCircle2,
+  Wallet,
+  Trash2,
+  RefreshCw,
   Coins,
   Plus,
   Check,
@@ -24,8 +24,8 @@ import {
   X,
   Download,
   ArrowDownToLine,
-  ArrowUpFromLine
-} from 'lucide-react';
+  ArrowUpFromLine,
+} from "lucide-react";
 
 export interface BurnerAccount {
   id: string;
@@ -34,8 +34,8 @@ export interface BurnerAccount {
   privateKey: `0x${string}`;
 }
 
-const STORAGE_KEY = 'shift_burner_wallets';
-const ACTIVE_KEY = 'shift_active_burner_id';
+const STORAGE_KEY = "shift_burner_wallets";
+const ACTIVE_KEY = "shift_active_burner_id";
 const MAX_WALLETS = 2;
 
 export default function BurnerWalletManager() {
@@ -50,14 +50,14 @@ export default function BurnerWalletManager() {
   const [isFetching, setIsFetching] = useState(false);
 
   // Fund/Withdraw state
-  const [fundAmount, setFundAmount] = useState('0.02');
+  const [fundAmount, setFundAmount] = useState("0.02");
   const [isFunding, setIsFunding] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawResults, setWithdrawResults] = useState<WithdrawResult[]>([]);
 
   // Import Modal State
   const [showImportModal, setShowImportModal] = useState(false);
-  const [importKeyInput, setImportKeyInput] = useState('');
+  const [importKeyInput, setImportKeyInput] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
 
   // Load saved wallets on mount
@@ -70,13 +70,11 @@ export default function BurnerWalletManager() {
         const parsed: BurnerAccount[] = JSON.parse(saved);
         setWallets(parsed);
         if (parsed.length > 0) {
-          const selected = savedActive && parsed.some(w => w.id === savedActive) 
-            ? savedActive 
-            : parsed[0].id;
+          const selected = savedActive && parsed.some((w) => w.id === savedActive) ? savedActive : parsed[0].id;
           setActiveId(selected);
         }
       } catch (e) {
-        console.error('Failed to parse saved burner wallets:', e);
+        console.error("Failed to parse saved burner wallets:", e);
       }
     }
   }, []);
@@ -92,7 +90,7 @@ export default function BurnerWalletManager() {
         const raw = await publicClient.getBalance({ address: wallet.address });
         newBalances[wallet.id] = Number(formatEther(raw)).toFixed(4);
       } catch (err) {
-        newBalances[wallet.id] = '0.0000';
+        newBalances[wallet.id] = "0.0000";
       }
     }
     setBalances(newBalances);
@@ -106,7 +104,7 @@ export default function BurnerWalletManager() {
   // Create a new random burner wallet
   const handleCreateNew = () => {
     if (wallets.length >= MAX_WALLETS) return;
-    toast.success('Burner wallet generated successfully!')
+    toast.success("Burner wallet generated successfully!");
     const newPk = generatePrivateKey();
     saveNewWallet(newPk);
   };
@@ -117,25 +115,25 @@ export default function BurnerWalletManager() {
     setImportError(null);
 
     let formattedKey = importKeyInput.trim();
-    if (!formattedKey.startsWith('0x')) {
+    if (!formattedKey.startsWith("0x")) {
       formattedKey = `0x${formattedKey}`;
     }
 
     if (!isHex(formattedKey) || formattedKey.length !== 66) {
-      setImportError('Invalid private key format. Must be a 32-byte hex string starting with 0x.');
+      setImportError("Invalid private key format. Must be a 32-byte hex string starting with 0x.");
       return;
     }
 
     try {
       // Test if private key can derive an account successfully
       privateKeyToAccount(formattedKey as `0x${string}`);
-      
+
       saveNewWallet(formattedKey as `0x${string}`);
-      setImportKeyInput('');
+      setImportKeyInput("");
       setShowImportModal(false);
-      toast.success('Burner wallet imported successfully!')
+      toast.success("Burner wallet imported successfully!");
     } catch (err) {
-      setImportError('Failed to derive account from private key. Check your input.');
+      setImportError("Failed to derive account from private key. Check your input.");
     }
   };
 
@@ -144,20 +142,20 @@ export default function BurnerWalletManager() {
     if (wallets.length >= MAX_WALLETS) return;
 
     const account = privateKeyToAccount(pk);
-    
+
     // Ensure unique naming sequence
-    const nextLabelNumber = wallets.length === 1 && wallets[0].label.includes('Burner') ? 2 : wallets.length + 1;
-    
+    const nextLabelNumber = wallets.length === 1 && wallets[0].label.includes("Burner") ? 2 : wallets.length + 1;
+
     const newWallet: BurnerAccount = {
       id: Date.now().toString(),
       label: `Burner #${nextLabelNumber}`,
       address: account.address,
-      privateKey: pk
+      privateKey: pk,
     };
 
     const updated = [...wallets, newWallet];
     setWallets(updated);
-    
+
     if (updated.length === 1) {
       setActiveId(newWallet.id);
       localStorage.setItem(ACTIVE_KEY, newWallet.id);
@@ -174,9 +172,14 @@ export default function BurnerWalletManager() {
 
   // Delete specific burner wallet
   const handleDelete = (id: string) => {
-    if (!confirm('Are you sure you want to delete this burner? Make sure you have exported the private key if it has funds!')) return;
+    if (
+      !confirm(
+        "Are you sure you want to delete this burner? Make sure you have exported the private key if it has funds!",
+      )
+    )
+      return;
 
-    const updated = wallets.filter(w => w.id !== id);
+    const updated = wallets.filter((w) => w.id !== id);
     setWallets(updated);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
@@ -186,7 +189,7 @@ export default function BurnerWalletManager() {
       if (nextActive) localStorage.setItem(ACTIVE_KEY, nextActive);
       else localStorage.removeItem(ACTIVE_KEY);
     }
-    toast.info('Burner wallet removed.')
+    toast.info("Burner wallet removed.");
   };
 
   // Send fundAmount from the connected wallet to every burner wallet
@@ -196,11 +199,11 @@ export default function BurnerWalletManager() {
     try {
       amount = parseEther(fundAmount);
     } catch {
-      toast.error('Invalid fund amount.');
+      toast.error("Invalid fund amount.");
       return;
     }
     if (amount <= 0n) {
-      toast.error('Fund amount must be greater than 0.');
+      toast.error("Fund amount must be greater than 0.");
       return;
     }
 
@@ -211,7 +214,7 @@ export default function BurnerWalletManager() {
         await sendTransactionAsync({ to: wallet.address, value: amount });
         successCount++;
       } catch (err: any) {
-        toast.error(`Failed to fund ${wallet.label}: ${err.shortMessage ?? 'transaction rejected'}`);
+        toast.error(`Failed to fund ${wallet.label}: ${err.shortMessage ?? "transaction rejected"}`);
       }
     }
     setIsFunding(false);
@@ -224,18 +227,19 @@ export default function BurnerWalletManager() {
   // Sweep every burner wallet's balance back to the connected wallet
   const handleWithdrawAll = async () => {
     if (wallets.length === 0 || !connectedAddress) return;
-    if (!confirm(`Sweep all burner balances to your connected wallet (${connectedAddress})? This cannot be undone.`)) return;
+    if (!confirm(`Sweep all burner balances to your connected wallet (${connectedAddress})? This cannot be undone.`))
+      return;
 
     setIsWithdrawing(true);
     setWithdrawResults([]);
     try {
       const results = await withdrawAllBurners(wallets, connectedAddress);
       setWithdrawResults(results);
-      const successCount = results.filter((r) => r.status === 'success').length;
+      const successCount = results.filter((r) => r.status === "success").length;
       toast.success(`Withdrawal complete: ${successCount}/${wallets.length} wallet(s) swept.`);
       fetchAllBalances();
     } catch (err) {
-      toast.error('Withdrawal failed unexpectedly.');
+      toast.error("Withdrawal failed unexpectedly.");
     } finally {
       setIsWithdrawing(false);
     }
@@ -244,9 +248,14 @@ export default function BurnerWalletManager() {
   // Export all wallets (including private keys) as a downloadable JSON file
   const handleExportManifest = () => {
     if (wallets.length === 0) return;
-    if (!confirm('This file will contain your RAW PRIVATE KEYS in plain text. Anyone who gets this file can drain these wallets. Continue?')) return;
+    if (
+      !confirm(
+        "This file will contain your RAW PRIVATE KEYS in plain text. Anyone who gets this file can drain these wallets. Continue?",
+      )
+    )
+      return;
     downloadWalletManifest(wallets);
-    toast.success('Wallet manifest downloaded.');
+    toast.success("Wallet manifest downloaded.");
   };
 
   const copyToClipboard = (text: string, id: string) => {
@@ -262,9 +271,7 @@ export default function BurnerWalletManager() {
           <h2 className="text-lg font-bold flex items-center gap-2">
             <Wallet className="text-shift-lime" /> BURNER WALLETS ({wallets.length}/{MAX_WALLETS})
           </h2>
-          <p className="text-xs text-shift-textMuted mt-1">
-            Manage up to {MAX_WALLETS} burner instances for sniping.
-          </p>
+          <p className="text-xs text-shift-textMuted mt-1">Manage up to {MAX_WALLETS} burner instances for sniping.</p>
         </div>
 
         <div className="flex gap-2">
@@ -275,35 +282,33 @@ export default function BurnerWalletManager() {
               className="p-2.5 bg-slate-900 border border-slate-700 hover:border-slate-600 rounded-lg text-shift-textMuted hover:text-white transition-colors"
               title="Refresh Balances"
             >
-              <RefreshCw size={16} className={isFetching ? 'animate-spin text-shift-lime' : ''} />
+              <RefreshCw size={16} className={isFetching ? "animate-spin text-shift-lime" : ""} />
             </button>
           )}
 
-          {/* Import Button */}
           <button
             onClick={() => setShowImportModal(true)}
             disabled={wallets.length >= MAX_WALLETS}
             className={`flex items-center gap-2 font-bold py-2.5 px-4 rounded-lg text-sm transition-colors border ${
               wallets.length >= MAX_WALLETS
-                ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
-                : 'bg-slate-900 hover:bg-slate-800 text-shift-cyan border-slate-700'
+                ? "bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed"
+                : "bg-slate-900 hover:bg-slate-800 text-shift-cyan border-slate-700"
             }`}
           >
             <KeyRound size={16} /> IMPORT
           </button>
 
-          {/* Generate Button */}
           <button
             onClick={handleCreateNew}
             disabled={wallets.length >= MAX_WALLETS}
             className={`flex items-center gap-2 font-bold py-2.5 px-4 rounded-lg text-sm transition-colors ${
-              wallets.length >= MAX_WALLETS 
-                ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700' 
-                : 'bg-shift-lime hover:bg-shift-limeHover text-shift-navy shadow-[0_0_15px_rgba(197,224,0,0.2)]'
+              wallets.length >= MAX_WALLETS
+                ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
+                : "bg-shift-lime hover:bg-shift-limeHover text-shift-navy shadow-[0_0_15px_rgba(197,224,0,0.2)]"
             }`}
           >
             {wallets.length >= MAX_WALLETS ? (
-              'MAX REACHED'
+              "MAX REACHED"
             ) : (
               <>
                 <Plus size={16} /> NEW BURNER
@@ -331,7 +336,7 @@ export default function BurnerWalletManager() {
                 disabled={isFunding || !connectedAddress}
                 className="flex items-center gap-1.5 bg-shift-lime hover:bg-shift-limeHover text-shift-navy font-bold py-2 px-3 rounded-lg text-xs transition-colors disabled:opacity-50"
               >
-                <ArrowDownToLine size={14} /> {isFunding ? 'Funding...' : 'Fund All'}
+                <ArrowDownToLine size={14} /> {isFunding ? "Funding..." : "Fund All"}
               </button>
             </div>
 
@@ -340,7 +345,7 @@ export default function BurnerWalletManager() {
               disabled={isWithdrawing || !connectedAddress}
               className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-shift-cyan font-bold py-2 px-3 rounded-lg text-xs transition-colors disabled:opacity-50 border border-slate-700"
             >
-              <ArrowUpFromLine size={14} /> {isWithdrawing ? 'Withdrawing...' : 'Withdraw All to Main'}
+              <ArrowUpFromLine size={14} /> {isWithdrawing ? "Withdrawing..." : "Withdraw All to Main"}
             </button>
 
             <button
@@ -352,14 +357,24 @@ export default function BurnerWalletManager() {
           </div>
 
           {!connectedAddress && (
-            <p className="text-[11px] text-amber-400">Connect a wallet to fund or withdraw — burners will sweep to your connected wallet.</p>
+            <p className="text-[11px] text-amber-400">
+              Connect a wallet to fund or withdraw — burners will sweep to your connected wallet.
+            </p>
           )}
 
           {withdrawResults.length > 0 && (
             <div className="pt-2 border-t border-slate-800 space-y-1">
               {withdrawResults.map((r, i) => (
                 <div key={i} className="flex items-center gap-2 text-[11px] font-mono">
-                  <span className={r.status === 'success' ? 'text-shift-lime' : r.status === 'skipped' ? 'text-amber-400' : 'text-red-400'}>
+                  <span
+                    className={
+                      r.status === "success"
+                        ? "text-shift-lime"
+                        : r.status === "skipped"
+                          ? "text-amber-400"
+                          : "text-red-400"
+                    }
+                  >
                     {r.status.toUpperCase()}
                   </span>
                   <span className="text-shift-textMuted truncate">{r.address}</span>
@@ -393,7 +408,7 @@ export default function BurnerWalletManager() {
         <div className="space-y-4">
           {wallets.map((w) => {
             const isActive = w.id === activeId;
-            const bal = balances[w.id] ?? '0.0000';
+            const bal = balances[w.id] ?? "0.0000";
             const isKeyVisible = !!showKeys[w.id];
 
             return (
@@ -401,8 +416,8 @@ export default function BurnerWalletManager() {
                 key={w.id}
                 className={`p-4 rounded-xl border transition-all ${
                   isActive
-                    ? 'bg-slate-900/90 border-shift-lime shadow-[0_0_15px_rgba(197,224,0,0.1)]'
-                    : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
+                    ? "bg-slate-900/90 border-shift-lime shadow-[0_0_15px_rgba(197,224,0,0.1)]"
+                    : "bg-slate-900/40 border-slate-800 hover:border-slate-700"
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
@@ -411,8 +426,8 @@ export default function BurnerWalletManager() {
                       onClick={() => handleSetActive(w.id)}
                       className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${
                         isActive
-                          ? 'bg-shift-lime border-shift-lime text-shift-navy'
-                          : 'border-slate-600 hover:border-slate-400'
+                          ? "bg-shift-lime border-shift-lime text-shift-navy"
+                          : "border-slate-600 hover:border-slate-400"
                       }`}
                       title="Set as Active Target"
                     >
@@ -442,7 +457,6 @@ export default function BurnerWalletManager() {
                   </div>
                 </div>
 
-                {/* Address Bar */}
                 <div className="flex items-center bg-slate-950 rounded-lg p-2 font-mono text-xs mb-2">
                   <span className="text-shift-textMuted mr-2 select-none">Address:</span>
                   <span className="text-white flex-1 truncate">{w.address}</span>
@@ -454,12 +468,11 @@ export default function BurnerWalletManager() {
                   </button>
                 </div>
 
-                {/* Private Key Reveal */}
                 <div className="flex items-center bg-red-950/20 border border-red-900/30 rounded-lg p-2 font-mono text-xs">
                   <span className="text-red-400 mr-2 select-none font-bold">Private Key:</span>
                   <input
                     readOnly
-                    type={isKeyVisible ? 'text' : 'password'}
+                    type={isKeyVisible ? "text" : "password"}
                     value={w.privateKey}
                     className="bg-transparent text-red-300 flex-1 focus:outline-none"
                   />
@@ -482,12 +495,14 @@ export default function BurnerWalletManager() {
         </div>
       )}
 
-      {/* Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-shift-card border border-slate-700 rounded-xl p-6 w-full max-w-md relative">
-            <button 
-              onClick={() => { setShowImportModal(false); setImportError(null); }}
+            <button
+              onClick={() => {
+                setShowImportModal(false);
+                setImportError(null);
+              }}
               className="absolute top-4 right-4 text-slate-400 hover:text-white"
             >
               <X size={20} />
@@ -521,7 +536,10 @@ export default function BurnerWalletManager() {
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => { setShowImportModal(false); setImportError(null); }}
+                  onClick={() => {
+                    setShowImportModal(false);
+                    setImportError(null);
+                  }}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-colors"
                 >
                   Cancel

@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useAccount } from 'wagmi';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount } from "wagmi";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
-import LandingPage from '@/components/LandingPage';
-import Sidebar from '@/components/Sidebar';
-import SniperInstructions from '@/components/SniperInstructions';
+import LandingPage from "@/components/LandingPage";
+import Sidebar from "@/components/Sidebar";
+import SniperInstructions from "@/components/SniperInstructions";
 
 export default function InstructionsPage() {
   const { isConnected } = useAccount();
@@ -22,14 +22,13 @@ export default function InstructionsPage() {
       <main className="flex-1 p-8 overflow-y-auto max-w-7xl mx-auto">
         <header className="flex justify-between items-center mb-8 gap-4">
           <ConnectButton showBalance={false} />
-          
-          <div className="bg-shift-card border border-slate-700 px-6 py-3 rounded-lg flex items-center justify-between min-w-[220px]">
+
+          <div className="bg-shift-card border border-slate-700 px-6 py-3 rounded-lg flex items-center justify-between min-w-55">
             <span className="text-shift-textMuted">Robinhood L2 Gas</span>
             <span className="font-mono text-shift-lime">12.4 Gwei</span>
           </div>
         </header>
 
-        {/* The Instructions Component */}
         <SniperInstructions />
       </main>
     </div>

@@ -1,24 +1,22 @@
-import { createPublicClient, http, defineChain } from 'viem';
+import { createPublicClient, http, type PublicClient } from "viem";
+import { DEFAULT_CHAIN_ID, getChainConfig, ROBINHOOD_RPC_URL, robinhoodChain } from "@/lib/chains";
 
-export const robinhoodChain = defineChain({
-  id: 4663,
-  name: 'Robinhood Chain',
-  network: 'robinhood-mainnet',
-  nativeCurrency: {
-    decimals: 18,
-    name: 'Ether',
-    symbol: 'ETH',
-  },
-  rpcUrls: {
-    default: { http: ['https://rpc.mainnet.chain.robinhood.com'] },
-    public: { http: ['https://rpc.mainnet.chain.robinhood.com'] },
-  },
-  blockExplorers: {
-    default: { name: 'Blockscout', url: 'https://robinhoodchain.blockscout.com' },
-  },
-});
+export { robinhoodChain } from "@/lib/chains";
 
 export const publicClient = createPublicClient({
   chain: robinhoodChain,
-  transport: http()
+  transport: http(ROBINHOOD_RPC_URL),
 });
+
+const publicClients = new Map<number, PublicClient>();
+publicClients.set(DEFAULT_CHAIN_ID, publicClient);
+
+export function getPublicClient(chainId: number = DEFAULT_CHAIN_ID) {
+  const existingClient = publicClients.get(chainId);
+  if (existingClient) return existingClient;
+
+  const chainConfig = getChainConfig(chainId);
+  const client = createPublicClient({ chain: chainConfig.chain, transport: http(chainConfig.rpcUrl) });
+  publicClients.set(chainId, client);
+  return client;
+}

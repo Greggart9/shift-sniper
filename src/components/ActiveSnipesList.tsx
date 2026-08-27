@@ -1,16 +1,19 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { Activity, Trash2, RefreshCw, Zap, ShieldCheck } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState, useEffect, useCallback } from "react";
+import { Activity, Trash2, RefreshCw, Zap, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
+import { getChainConfig } from "@/lib/chains";
 
 interface ActiveTask {
   id: string;
+  chainId?: number;
+  chainName?: string;
   targetContract: string;
   mintPriceEth: string;
   maxQuantity: number;
   targetFunctionName: string;
-  executionMode: 'BURNER' | 'PRESIGN';
+  executionMode: "BURNER" | "PRESIGN";
 }
 
 interface ActiveSnipesListProps {
@@ -25,13 +28,13 @@ export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed }: Act
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/sniper');
+      const res = await fetch("/api/sniper");
       const data = await res.json();
       if (data.success) {
         setTasks(data.tasks);
       }
     } catch (err) {
-      console.error('Failed to fetch active tasks:', err);
+      console.error("Failed to fetch active tasks:", err);
     } finally {
       setLoading(false);
     }
@@ -46,16 +49,16 @@ export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed }: Act
   const handleDisarm = async (taskId: string) => {
     try {
       const res = await fetch(`/api/sniper?taskId=${taskId}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
       const data = await res.json();
       if (data.success) {
         fetchTasks();
         onTaskDisarmed();
-        toast.warning('Sniper task disarmed.')
+        toast.warning("Sniper task disarmed.");
       }
     } catch (err) {
-      console.error('Failed to disarm task:', err);
+      console.error("Failed to disarm task:", err);
     }
   };
 
@@ -70,7 +73,7 @@ export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed }: Act
           className="p-2 bg-slate-900 border border-slate-700 rounded-lg text-shift-textMuted hover:text-white transition-colors"
           title="Refresh List"
         >
-          <RefreshCw size={14} className={loading ? 'animate-spin text-shift-lime' : ''} />
+          <RefreshCw size={14} className={loading ? "animate-spin text-shift-lime" : ""} />
         </button>
       </div>
 
@@ -86,21 +89,25 @@ export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed }: Act
               className="flex items-center justify-between bg-slate-900/80 border border-slate-800 p-4 rounded-lg font-mono text-xs"
             >
               <div className="flex items-center gap-4">
-                <span className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 ${
-                  task.executionMode === 'BURNER' 
-                    ? 'bg-shift-lime/10 text-shift-lime border border-shift-lime/20' 
-                    : 'bg-shift-cyan/10 text-shift-cyan border border-shift-cyan/20'
-                }`}>
-                  {task.executionMode === 'BURNER' ? <Zap size={12} /> : <ShieldCheck size={12} />}
+                <span
+                  className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 ${
+                    task.executionMode === "BURNER"
+                      ? "bg-shift-lime/10 text-shift-lime border border-shift-lime/20"
+                      : "bg-shift-cyan/10 text-shift-cyan border border-shift-cyan/20"
+                  }`}
+                >
+                  {task.executionMode === "BURNER" ? <Zap size={12} /> : <ShieldCheck size={12} />}
                   {task.executionMode}
                 </span>
 
                 <div>
-                  <div className="text-white font-bold">{task.targetContract}</div>
+                  <div className="text-white font-bold">
+                    {task.targetContract} · {task.chainName ?? (task.chainId ? getChainConfig(task.chainId).label : "Robinhood Chain")}
+                  </div>
                   <div className="text-slate-400 text-[11px] mt-0.5">
-                    Fn: <span className="text-shift-lime">{task.targetFunctionName}</span> | 
-                    Price: <span className="text-white">{task.mintPriceEth} ETH</span> | 
-                    Qty: <span className="text-white">{task.maxQuantity}</span>
+                    Fn: <span className="text-shift-lime">{task.targetFunctionName}</span> | Price:{" "}
+                    <span className="text-white">{task.mintPriceEth} ETH</span> | Qty:{" "}
+                    <span className="text-white">{task.maxQuantity}</span>
                   </div>
                 </div>
               </div>

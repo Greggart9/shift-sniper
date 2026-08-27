@@ -1,7 +1,7 @@
-import './globals.css';
-import { Providers } from './providers'; // or your existing wagmi/rainbowkit provider wrapper
-import { Toaster } from 'sonner';
-import { Metadata } from 'next';
+import "./globals.css";
+import { Providers } from "./providers"; // or your existing wagmi/rainbowkit provider wrapper
+import { Toaster } from "sonner";
+import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "SHIFT Sniper | Exclusive NFT Dashboard",

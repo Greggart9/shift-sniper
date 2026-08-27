@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { formatEther } from 'viem';
-import { publicClient } from '@/lib/viem';
+import { useState } from "react";
+import { formatEther } from "viem";
+import { publicClient } from "@/lib/viem";
 
 interface CheckResult {
   name: string;
-  status: 'PASS' | 'FAIL' | 'WARN';
+  status: "PASS" | "FAIL" | "WARN";
   detail: string;
 }
 
@@ -23,28 +23,32 @@ export default function DoctorPanel() {
     const checks: CheckResult[] = [];
 
     try {
-      const res = await fetch('/api/doctor');
+      const res = await fetch("/api/doctor");
       const data = await res.json();
       checks.push(...(data.checks ?? []));
     } catch {
-      checks.push({ name: 'Server diagnostics', status: 'FAIL', detail: 'Could not reach /api/doctor.' });
+      checks.push({ name: "Server diagnostics", status: "FAIL", detail: "Could not reach /api/doctor." });
     }
 
-    const savedWalletsRaw = localStorage.getItem('shift_burner_wallets');
-    const activeId = localStorage.getItem('shift_active_burner_id');
+    const savedWalletsRaw = localStorage.getItem("shift_burner_wallets");
+    const activeId = localStorage.getItem("shift_active_burner_id");
     const wallets: { id: string; address: `0x${string}`; privateKey: `0x${string}` }[] = savedWalletsRaw
       ? JSON.parse(savedWalletsRaw)
       : [];
 
     if (wallets.length === 0) {
-      checks.push({ name: 'Burner wallets', status: 'FAIL', detail: 'No burner wallets saved. Generate or import one before arming.' });
+      checks.push({
+        name: "Burner wallets",
+        status: "FAIL",
+        detail: "No burner wallets saved. Generate or import one before arming.",
+      });
     } else {
-      checks.push({ name: 'Burner wallets', status: 'PASS', detail: `${wallets.length} wallet(s) saved.` });
+      checks.push({ name: "Burner wallets", status: "PASS", detail: `${wallets.length} wallet(s) saved.` });
 
       const activeWallet = wallets.find((w) => w.id === activeId) ?? wallets[0];
       checks.push({
-        name: 'Active wallet target',
-        status: wallets.find((w) => w.id === activeId) ? 'PASS' : 'WARN',
+        name: "Active wallet target",
+        status: wallets.find((w) => w.id === activeId) ? "PASS" : "WARN",
         detail: wallets.find((w) => w.id === activeId)
           ? activeWallet.address
           : `No wallet explicitly marked active — ${activeWallet.address} (first saved) will be used by default.`,
@@ -53,12 +57,12 @@ export default function DoctorPanel() {
       try {
         const balance = await publicClient.getBalance({ address: activeWallet.address });
         checks.push({
-          name: 'Active wallet balance',
-          status: balance >= MIN_BALANCE_WEI ? 'PASS' : 'WARN',
-          detail: `${formatEther(balance)} ETH${balance < MIN_BALANCE_WEI ? ' — may not cover mint price plus the top fee-bump tier\'s gas.' : ''}`,
+          name: "Active wallet balance",
+          status: balance >= MIN_BALANCE_WEI ? "PASS" : "WARN",
+          detail: `${formatEther(balance)} ETH${balance < MIN_BALANCE_WEI ? " — may not cover mint price plus the top fee-bump tier's gas." : ""}`,
         });
       } catch {
-        checks.push({ name: 'Active wallet balance', status: 'FAIL', detail: 'Could not fetch balance from RPC.' });
+        checks.push({ name: "Active wallet balance", status: "FAIL", detail: "Could not fetch balance from RPC." });
       }
     }
 
@@ -66,8 +70,8 @@ export default function DoctorPanel() {
     setLoading(false);
   };
 
-  const statusColor = (status: CheckResult['status']) =>
-    status === 'PASS' ? 'text-shift-lime' : status === 'WARN' ? 'text-yellow-400' : 'text-red-400';
+  const statusColor = (status: CheckResult["status"]) =>
+    status === "PASS" ? "text-shift-lime" : status === "WARN" ? "text-yellow-400" : "text-red-400";
 
   return (
     <div className="bg-shift-card border border-slate-700 rounded-lg p-4 mb-6">
@@ -78,7 +82,7 @@ export default function DoctorPanel() {
           disabled={loading}
           className="bg-shift-lime text-shift-navy px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
         >
-          {loading ? 'Running...' : 'Run Doctor'}
+          {loading ? "Running..." : "Run Doctor"}
         </button>
       </div>
 
