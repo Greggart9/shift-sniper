@@ -20,6 +20,7 @@ interface SignBurnerSnipeParams {
   functionName: string;
   maxFeeGwei: string;
   priorityTipGwei: string;
+  mintCalldata?: Hex;
 }
 
 // Build and sign the mint transaction locally; only the signed transaction is sent to the server.
@@ -32,15 +33,17 @@ export async function signBurnerSnipe({
   functionName,
   maxFeeGwei,
   priorityTipGwei,
+  mintCalldata,
 }: SignBurnerSnipeParams) {
   const account = privateKeyToAccount(privateKey);
   const selectedChainId = chainId ?? DEFAULT_CHAIN_ID;
   const chainConfig = getChainConfig(selectedChainId);
   const client = getPublicClient(selectedChainId);
-  const plan = await buildSeaDropPlan(client, targetContract, quantity);
+  const plan = mintCalldata ? undefined : await buildSeaDropPlan(client, targetContract, quantity);
 
   const to = plan?.to ?? targetContract;
   const data =
+    mintCalldata ??
     plan?.data ??
     encodeFunctionData({
       abi: [
@@ -105,15 +108,17 @@ export async function signBurnerSnipeFeeTiers({
   functionName,
   maxFeeGwei,
   priorityTipGwei,
+  mintCalldata,
 }: SignBurnerSnipeParams) {
   const account = privateKeyToAccount(privateKey);
   const selectedChainId = chainId ?? DEFAULT_CHAIN_ID;
   const chainConfig = getChainConfig(selectedChainId);
   const client = getPublicClient(selectedChainId);
-  const plan = await buildSeaDropPlan(client, targetContract, quantity);
+  const plan = mintCalldata ? undefined : await buildSeaDropPlan(client, targetContract, quantity);
 
   const to = plan?.to ?? targetContract;
   const data =
+    mintCalldata ??
     plan?.data ??
     encodeFunctionData({
       abi: [

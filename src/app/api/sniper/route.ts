@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const { targetContract, chainId, mintPriceEth, maxQuantity, functionName, mode, feeTiersBatch } = body;
+    const { targetContract, chainId, mintPriceEth, maxQuantity, functionName, mode, feeTiersBatch, phaseType } = body;
     const selectedChainId = chainId === undefined ? DEFAULT_CHAIN_ID : chainId;
 
     const batches: string[][] = Array.isArray(feeTiersBatch) ? feeTiersBatch : [];
@@ -85,11 +85,11 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!mode || !["BURNER", "PRESIGN"].includes(mode)) {
+    if (mode !== "BURNER") {
       return NextResponse.json(
         {
           success: false,
-          error: "mode must be either BURNER or PRESIGN.",
+          error: "Only imported burner wallets can mint.",
         },
         { status: 400 },
       );
@@ -123,6 +123,7 @@ export async function POST(request: Request) {
       mode,
       batches,
       selectedChainId,
+      phaseType === "GUARANTEED_WL" || phaseType === "FCFS_WL" ? phaseType : "PUBLIC",
     );
 
     return NextResponse.json({

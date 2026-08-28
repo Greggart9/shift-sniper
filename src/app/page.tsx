@@ -1,12 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useAccount, useChainId, useSignTransaction, useSwitchChain } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { encodeFunctionData, parseEther } from "viem";
+import { useChainId, useSwitchChain } from "wagmi";
 import { toast } from "sonner";
 
-import LandingPage from "@/components/LandingPage";
 import DoctorPanel from "@/components/DoctorPanel";
 import Sidebar from "@/components/Sidebar";
 import SniperConfig from "@/components/SniperConfig";
@@ -26,7 +23,7 @@ interface SniperResult {
   targetContract: string;
   transactionTo?: string;
 
-  mode: "BURNER" | "PRESIGN";
+  mode: "BURNER";
 
   requestedQuantity: number;
   mintedQuantity?: number;
@@ -50,7 +47,16 @@ interface SniperResult {
 interface SniperStatus {
   id: string;
 
-  status: "ARMED" | "WAITING" | "BROADCASTING" | "CONFIRMED" | "FAILED" | "CANCELLED";
+  status:
+    | "ARMED"
+    | "WAITING"
+    | "SCHEDULED"
+    | "READY"
+    | "BROADCASTING"
+    | "CONFIRMED"
+    | "FAILED"
+    | "EXPIRED"
+    | "CANCELLED";
 
   statusMessage?: string;
 
@@ -66,7 +72,7 @@ interface SniperStatus {
 
   targetFunctionName?: string;
 
-  executionMode: "BURNER" | "PRESIGN";
+  executionMode: "BURNER";
 
   scheduledFor?: string;
   endsAt?: string;
@@ -91,7 +97,7 @@ interface SavedSniperConfig {
   maxQuantity: number;
   functionName: string;
 
-  mode: "BURNER" | "PRESIGN";
+  mode: "BURNER";
 
   maxFeeGwei: string;
   priorityTipGwei: string;
@@ -101,6 +107,11 @@ interface SavedSniperConfig {
   collectionName?: string;
   collectionSymbol?: string;
   collectionImage?: string;
+
+  phaseType: "PUBLIC" | "GUARANTEED_WL" | "FCFS_WL";
+  merkleRoot: string;
+  merkleProofsJson: string;
+  mintCalldata: string;
 }
 
 const STORAGE_KEY = "shift_sniper_config";
@@ -110,12 +121,9 @@ const TASK_STORAGE_KEY = "shift_sniper_task_ids";
 const POLL_INTERVAL = 1500;
 
 export default function Home() {
-  const { isConnected } = useAccount();
   const connectedChainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
-  const { signTransactionAsync } = useSignTransaction();
-
-  const [mode, setMode] = useState<"BURNER" | "PRESIGN">("BURNER");
+  const mode = "BURNER" as const;
 
   const [targetContract, setTargetContract] = useState("");
 
@@ -130,6 +138,13 @@ export default function Home() {
   const [collectionSymbol, setCollectionSymbol] = useState("");
 
   const [collectionImage, setCollectionImage] = useState("");
+
+  const [phaseType, setPhaseType] = useState<"PUBLIC" | "GUARANTEED_WL" | "FCFS_WL">("PUBLIC");
+
+  const [merkleRoot, setMerkleRoot] = useState("");
+
+  const [merkleProofsJson, setMerkleProofsJson] = useState("");
+  const [mintCalldata, setMintCalldata] = useState("");
 
   const [useAllWallets, setUseAllWallets] = useState(false);
 
@@ -162,7 +177,7 @@ export default function Home() {
     const previousChainId = selectedChainId;
     setSelectedChainId(chainId);
 
-    if (isConnected && chainId !== connectedChainId) {
+    if (chainId !== connectedChainId) {
       try {
         await switchChainAsync({ chainId });
       } catch {
@@ -201,7 +216,6 @@ export default function Home() {
 
         setFunctionName(config.functionName ?? "");
 
-        setMode(config.mode ?? "BURNER");
 
         setMaxFeeGwei(config.maxFeeGwei ?? "25");
 
@@ -214,6 +228,13 @@ export default function Home() {
         setCollectionSymbol(config.collectionSymbol ?? "");
 
         setCollectionImage(config.collectionImage ?? "");
+
+        setPhaseType(config.phaseType ?? "PUBLIC");
+
+        setMerkleRoot(config.merkleRoot ?? "");
+
+        setMerkleProofsJson(config.merkleProofsJson ?? "");
+  setMintCalldata(config.mintCalldata ?? "");
 
         addLog("♻️ Previous sniper configuration restored.");
       }
@@ -245,6 +266,11 @@ export default function Home() {
       collectionName,
       collectionSymbol,
       collectionImage,
+
+      phaseType,
+      merkleRoot,
+      merkleProofsJson,
+      mintCalldata,
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
@@ -260,6 +286,10 @@ export default function Home() {
     collectionName,
     collectionSymbol,
     collectionImage,
+    phaseType,
+    merkleRoot,
+    merkleProofsJson,
+    mintCalldata,
   ]);
 
   // Restore active task IDs
@@ -338,14 +368,14 @@ export default function Home() {
     const message = status.statusMessage;
 
     // Waiting
-    if (status.status === "WAITING" && message) {
+    if ((status.status === "WAITING" || status.status === "SCHEDULED") && message) {
       addLog(`⏳ ${message}`);
 
       return;
     }
 
     // Armed
-    if (status.status === "ARMED") {
+    if (status.status === "ARMED" || status.status === "READY") {
       addLog(
         `🎯 SNIPER ARMED — ${status.collectionName ?? "Unknown Collection"} — Quantity: ${status.requestedQuantity}`,
       );
@@ -414,6 +444,12 @@ export default function Home() {
       return;
     }
 
+    if (status.status === "EXPIRED") {
+      addLog(`⌛ MINT EXPIRED — ${status.errorMessage ?? status.statusMessage ?? "The mint phase ended."}`);
+
+      return;
+    }
+
     // Cancelled
     if (status.status === "CANCELLED") {
       addLog("🛑 SNIPER TASK CANCELLED.");
@@ -423,7 +459,7 @@ export default function Home() {
   // Poll sniper status
 
   useEffect(() => {
-    if (!isConnected || taskIds.length === 0) {
+    if (taskIds.length === 0) {
       return;
     }
 
@@ -472,7 +508,12 @@ export default function Home() {
         const stillRelevant = statuses
           .filter((status): status is SniperStatus => status !== null)
           .filter(
-            (status) => status.status === "ARMED" || status.status === "WAITING" || status.status === "BROADCASTING",
+            (status) =>
+              status.status === "ARMED" ||
+              status.status === "WAITING" ||
+              status.status === "SCHEDULED" ||
+              status.status === "READY" ||
+              status.status === "BROADCASTING",
           )
           .map((status) => status.id);
 
@@ -499,17 +540,11 @@ export default function Home() {
     }, POLL_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [isConnected, taskIds]);
+  }, [taskIds]);
 
   // Arm sniper
 
   const handleArmSniper = async () => {
-    if (!isConnected) {
-      toast.error("Connect your wallet first.");
-
-      return;
-    }
-
     if (!targetContract) {
       toast.error("Enter a contract address.");
 
@@ -519,6 +554,11 @@ export default function Home() {
     if (!maxQuantity || maxQuantity < 1) {
       toast.error("Enter a valid quantity.");
 
+      return;
+    }
+
+    if (phaseType !== "PUBLIC" && (!/^0x[0-9a-fA-F]*$/.test(mintCalldata) || mintCalldata.length < 10)) {
+      toast.error("Enter the encoded calldata for this WL phase.");
       return;
     }
 
@@ -537,6 +577,12 @@ export default function Home() {
         functionName,
 
         mode,
+
+        phaseType,
+
+        merkleRoot,
+
+        merkleProofsJson,
 
         maxFeeGwei,
 
@@ -602,6 +648,8 @@ export default function Home() {
                 maxFeeGwei,
 
                 priorityTipGwei,
+
+                mintCalldata: phaseType === "PUBLIC" ? undefined : (mintCalldata as `0x${string}`),
               }),
             ),
           );
@@ -616,59 +664,6 @@ export default function Home() {
           addLog(`❌ Local signing failed: ${signError?.message ?? "Unknown error"}`);
 
           toast.error("Local signing failed.");
-
-          return;
-        }
-      } else if (mode === "PRESIGN") {
-        // Presign mode
-        addLog("🟡 Prompting wallet for signature...");
-
-        try {
-          const data = encodeFunctionData({
-            abi: [
-              {
-                name: functionName,
-
-                type: "function",
-
-                stateMutability: "payable",
-
-                inputs: [
-                  {
-                    name: "quantity",
-
-                    type: "uint256",
-                  },
-                ],
-
-                outputs: [],
-              },
-            ],
-
-            functionName: functionName,
-
-            args: [BigInt(maxQuantity)],
-          });
-
-          const signedTx = await signTransactionAsync({
-            to: targetContract as `0x${string}`,
-
-            value: parseEther(mintPrice),
-
-            data,
-
-            gas: 300000n,
-          });
-
-          transactionsForSimulation.push(signedTx);
-
-          addLog("✅ Transaction signed successfully!");
-
-          payloadParams.feeTiersBatch = [[signedTx]];
-        } catch (signError: any) {
-          addLog(`❌ Signature rejected: ${signError?.shortMessage ?? "User denied request."}`);
-
-          toast.error("Transaction signature rejected.");
 
           return;
         }
@@ -763,10 +758,6 @@ export default function Home() {
 
   // Render
 
-  if (!isConnected) {
-    return <LandingPage />;
-  }
-
   return (
     <div className="min-h-screen bg-shift-navy text-shift-textMain flex font-sans">
       <Sidebar />
@@ -789,7 +780,6 @@ export default function Home() {
                 </option>
               ))}
             </select>
-            <ConnectButton showBalance={false} />
           </div>
 
           <div className="bg-shift-card border border-slate-700 px-6 py-3 rounded-lg flex items-center justify-between min-w-55">
@@ -815,14 +805,20 @@ export default function Home() {
           setMaxFeeGwei={setMaxFeeGwei}
           priorityTipGwei={priorityTipGwei}
           setPriorityTipGwei={setPriorityTipGwei}
-          mode={mode}
-          setMode={setMode}
           useAllWallets={useAllWallets}
           setUseAllWallets={setUseAllWallets}
           savedWalletCount={savedWalletCount}
           setCollectionName={setCollectionName}
           setCollectionSymbol={setCollectionSymbol}
           setCollectionImage={setCollectionImage}
+          phaseType={phaseType}
+          setPhaseType={setPhaseType}
+          merkleRoot={merkleRoot}
+          setMerkleRoot={setMerkleRoot}
+          merkleProofsJson={merkleProofsJson}
+          setMerkleProofsJson={setMerkleProofsJson}
+                    mintCalldata={mintCalldata}
+                    setMintCalldata={setMintCalldata}
           isArmed={false}
           loading={loading}
           onToggleArm={handleArmSniper}

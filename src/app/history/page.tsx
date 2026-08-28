@@ -12,7 +12,7 @@ interface TradeLog {
   id: string;
   timestamp: string;
   targetContract: string;
-  mode: "BURNER" | "PRESIGN";
+  mode: "BURNER";
   status: "SUCCESS" | "FAILED";
   txHash?: string;
   errorMessage?: string;

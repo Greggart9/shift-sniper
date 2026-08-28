@@ -52,6 +52,14 @@ type PublicDrop = {
   restrictFeeRecipients: boolean;
 };
 
+export type SeaDropPhase = {
+  kind: "PUBLIC";
+  startsAt: number;
+  endsAt: number;
+  maxQuantityPerWallet: number;
+  mintPriceEth: string;
+};
+
 function isRpcConnectionError(error: unknown) {
   if (!(error instanceof Error)) return false;
 
@@ -93,6 +101,13 @@ export async function buildSeaDropPlan(publicClient: PublicClient, nftContract: 
       startsAt: Number(drop.startTime) * 1_000,
       endsAt: Number(drop.endTime) * 1_000,
       mintPriceEth: (Number(drop.mintPrice) / 1e18).toString(),
+      phase: {
+        kind: "PUBLIC" as const,
+        startsAt: Number(drop.startTime) * 1_000,
+        endsAt: Number(drop.endTime) * 1_000,
+        maxQuantityPerWallet: Number(drop.maxTotalMintableByWallet),
+        mintPriceEth: (Number(drop.mintPrice) / 1e18).toString(),
+      },
     };
   } catch (error) {
     if (isRpcConnectionError(error)) {

@@ -103,7 +103,7 @@ export async function GET() {
     status: walletConnectConfigured ? "PASS" : "WARN",
     detail: walletConnectConfigured
       ? "Configured."
-      : "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is missing — PRESIGN mode (wallet-connect signing) will not work.",
+      : "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is missing — connected-wallet signing will not work.",
   });
 
   return NextResponse.json({ checks, timestamp: new Date().toISOString() });

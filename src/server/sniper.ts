@@ -9,7 +9,7 @@ import {
 } from "viem";
 import { randomUUID } from "crypto";
 import { DEFAULT_CHAIN_ID, getChainConfig } from "@/lib/chains";
-import { buildSeaDropPlan } from "@/lib/seadrop";
+import { buildSeaDropPlan, type SeaDropPhase } from "@/lib/seadrop";
 import { loadActiveTasks, loadTasks, loadTrades, saveTask, saveTrade } from "@/server/sniperStore";
 import { getPublicClient } from "@/lib/viem";
 
@@ -33,7 +33,16 @@ const ERC1155_TRANSFER_SINGLE_TOPIC = keccak256(
 );
 
 // Internal status of a sniper task.
-export type SniperStatus = "ARMED" | "WAITING" | "BROADCASTING" | "CONFIRMED" | "FAILED" | "CANCELLED";
+export type SniperStatus =
+  | "ARMED"
+  | "WAITING"
+  | "SCHEDULED"
+  | "READY"
+  | "BROADCASTING"
+  | "CONFIRMED"
+  | "FAILED"
+  | "EXPIRED"
+  | "CANCELLED";
 
 export interface SnipeTask {
   id: string;
@@ -46,12 +55,14 @@ export interface SnipeTask {
 
   targetFunctionName: string;
 
-  executionMode: "BURNER" | "PRESIGN";
+  executionMode: "BURNER";
 
   feeTiers: Hex[];
 
   scheduledFor: string;
   endsAt?: string;
+
+  phase?: SeaDropPhase;
 
   rpcUrls: string[];
 
@@ -90,7 +101,7 @@ export interface TradeLog {
 
   transactionTo?: string;
 
-  mode: "BURNER" | "PRESIGN";
+  mode: "BURNER";
 
   requestedQuantity: number;
 
@@ -226,6 +237,8 @@ export function getSniperStatus(taskId: string) {
     scheduledFor: task.scheduledFor,
 
     endsAt: task.endsAt,
+
+    phase: task.phase,
 
     createdAt: task.createdAt,
 
@@ -366,10 +379,12 @@ function scheduleTask(task: SnipeTask) {
   const delay = Math.max(0, new Date(task.scheduledFor).getTime() - Date.now());
 
   updateTask(task.id, {
-    status: delay > 0 ? "WAITING" : "ARMED",
+    status: delay > 0 ? "SCHEDULED" : "READY",
 
     statusMessage:
-      delay > 0 ? `Waiting for mint window — scheduled for ${task.scheduledFor}.` : "Sniper armed and ready.",
+      delay > 0
+        ? `Waiting for ${task.phase?.kind ?? "mint"} phase — scheduled for ${task.scheduledFor}.`
+        : "Sniper ready for immediate broadcast.",
   });
 
   const timer = setTimeout(() => void executeSnipe(task.id), Math.min(delay, 2_147_483_647));
@@ -718,16 +733,55 @@ async function executeSnipe(taskId: string) {
   timers.delete(task.id);
 
   if (task.endsAt && Date.now() >= new Date(task.endsAt).getTime()) {
-    const message = "Mint stage has ended; transaction was not broadcast.";
+    const message = "Mint phase has ended; transaction was not broadcast.";
 
     updateTask(task.id, {
-      status: "FAILED",
+      status: "EXPIRED",
       statusMessage: message,
       errorMessage: message,
     });
 
     recordTrade(createFailedTradeLog(task, message));
 
+    return;
+  }
+
+  // Refresh the phase window immediately before broadcast; this does not run during fee-tier execution.
+  let livePlan;
+  try {
+    livePlan = await buildSeaDropPlan(client, task.targetContract, task.maxQuantity);
+  } catch (error) {
+    const message = error instanceof Error ? `Phase refresh failed: ${error.message}` : "Phase refresh failed.";
+    updateTask(task.id, {
+      status: "FAILED",
+      statusMessage: message,
+      errorMessage: message,
+    });
+    recordTrade(createFailedTradeLog(task, message));
+    return;
+  }
+
+  if (livePlan?.startsAt && livePlan.startsAt > Date.now()) {
+    activeTasks.set(task.id, task);
+    updateTask(task.id, {
+      status: "SCHEDULED",
+      scheduledFor: new Date(livePlan.startsAt).toISOString(),
+      endsAt: livePlan.endsAt ? new Date(livePlan.endsAt).toISOString() : task.endsAt,
+      phase: livePlan.phase,
+      statusMessage: `Phase moved; rescheduled for ${new Date(livePlan.startsAt).toISOString()}.`,
+    });
+    scheduleTask(task);
+    return;
+  }
+
+  if (livePlan?.endsAt && livePlan.endsAt <= Date.now()) {
+    const message = "Mint phase has ended; transaction was not broadcast.";
+    updateTask(task.id, {
+      status: "EXPIRED",
+      statusMessage: message,
+      errorMessage: message,
+    });
+    recordTrade(createFailedTradeLog(task, message));
     return;
   }
 
@@ -922,9 +976,10 @@ export async function armSniper(
   price: string,
   qty: number,
   fnName: string,
-  mode: "BURNER" | "PRESIGN",
+  mode: "BURNER",
   feeTiers: string[],
   chainId: number = DEFAULT_CHAIN_ID,
+  phaseType: "PUBLIC" | "GUARANTEED_WL" | "FCFS_WL" = "PUBLIC",
 ): Promise<string> {
   startSniperEngine();
 
@@ -945,7 +1000,7 @@ export async function armSniper(
   const client = getPublicClient(chainConfig.id);
 
   // Get SeaDrop information.
-  const seaDropPlan = await buildSeaDropPlan(client, targetContract, qty);
+  const seaDropPlan = phaseType === "PUBLIC" ? await buildSeaDropPlan(client, targetContract, qty) : undefined;
 
   if (seaDropPlan?.endsAt && seaDropPlan.endsAt <= Date.now()) {
     throw new Error("This SeaDrop public mint has already ended.");
@@ -992,6 +1047,8 @@ export async function armSniper(
     scheduledFor: new Date(startAt).toISOString(),
 
     endsAt: seaDropPlan?.endsAt ? new Date(seaDropPlan.endsAt).toISOString() : undefined,
+
+    phase: seaDropPlan?.phase,
 
     rpcUrls: [chainConfig.rpcUrl, ...chainConfig.fallbackRpcUrls],
 
@@ -1060,9 +1117,10 @@ export async function armSniperBatch(
   price: string,
   qty: number,
   fnName: string,
-  mode: "BURNER" | "PRESIGN",
+  mode: "BURNER",
   feeTiersBatch: string[][],
   chainId: number = DEFAULT_CHAIN_ID,
+  phaseType: "PUBLIC" | "GUARANTEED_WL" | "FCFS_WL" = "PUBLIC",
 ): Promise<string[]> {
   const batches = (feeTiersBatch ?? []).filter((tiers) => Array.isArray(tiers) && tiers.length > 0);
 
@@ -1074,7 +1132,7 @@ export async function armSniperBatch(
 
   try {
     for (const feeTiers of batches) {
-      taskIds.push(await armSniper(contract, price, qty, fnName, mode, feeTiers, chainId));
+      taskIds.push(await armSniper(contract, price, qty, fnName, mode, feeTiers, chainId, phaseType));
     }
 
     return taskIds;

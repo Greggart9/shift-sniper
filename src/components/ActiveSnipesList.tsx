@@ -13,10 +13,21 @@ interface ActiveTask {
   mintPriceEth: string;
   maxQuantity: number;
   targetFunctionName: string;
-  executionMode: "BURNER" | "PRESIGN";
-  status: "ARMED" | "WAITING" | "BROADCASTING" | "CONFIRMED" | "FAILED" | "CANCELLED";
+  executionMode: "BURNER";
+  status:
+    | "ARMED"
+    | "WAITING"
+    | "SCHEDULED"
+    | "READY"
+    | "BROADCASTING"
+    | "CONFIRMED"
+    | "FAILED"
+    | "EXPIRED"
+    | "CANCELLED";
   statusMessage?: string;
   scheduledFor?: string;
+  endsAt?: string;
+  signerAddress?: string;
   currentTier?: number;
   broadcastTxHashes?: string[];
 }
@@ -149,6 +160,12 @@ export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed }: Act
                     <span className="inline-flex items-center gap-1 text-slate-500">
                       <Clock3 size={12} /> {formatSchedule(task.scheduledFor)}
                     </span>
+                    {task.endsAt && <span className="text-slate-500">Ends {new Date(task.endsAt).toLocaleTimeString()}</span>}
+                    {task.signerAddress && (
+                      <span className="text-slate-500" title={task.signerAddress}>
+                        Wallet {task.signerAddress.slice(0, 6)}...{task.signerAddress.slice(-4)}
+                      </span>
+                    )}
                     {task.broadcastTxHashes?.map((hash) => (
                       <a
                         key={hash}
@@ -175,7 +192,7 @@ export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed }: Act
                     <RotateCcw size={14} /> Retry
                   </button>
                 )}
-                {!["FAILED", "CONFIRMED", "CANCELLED"].includes(task.status) && (
+                  {!["FAILED", "CONFIRMED", "EXPIRED", "CANCELLED"].includes(task.status) && (
                   <button
                     onClick={() => void handleDisarm(task.id)}
                     className="flex items-center gap-1 bg-red-950/40 border border-red-900/50 hover:bg-red-900/50 text-red-400 px-3 py-1.5 rounded-md transition-colors"

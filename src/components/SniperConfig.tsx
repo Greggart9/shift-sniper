@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Play, Zap, ShieldCheck, Sparkles, Lock, Flame } from "lucide-react";
+import { Play, Sparkles, Lock, Flame, CircleCheck, CircleX, CircleHelp } from "lucide-react";
+import { getWalletEligibility, type WalletEligibility } from "@/lib/eligibility";
 
 interface SniperConfigProps {
   targetContract: string;
@@ -23,9 +24,6 @@ interface SniperConfigProps {
   priorityTipGwei: string;
   setPriorityTipGwei: (val: string) => void;
 
-  mode: "BURNER" | "PRESIGN";
-  setMode: (val: "BURNER" | "PRESIGN") => void;
-
   useAllWallets: boolean;
   setUseAllWallets: (val: boolean) => void;
 
@@ -40,6 +38,15 @@ interface SniperConfigProps {
   setCollectionName?: (val: string) => void;
   setCollectionSymbol?: (val: string) => void;
   setCollectionImage?: (val: string) => void;
+
+  phaseType: "PUBLIC" | "GUARANTEED_WL" | "FCFS_WL";
+  setPhaseType: (val: "PUBLIC" | "GUARANTEED_WL" | "FCFS_WL") => void;
+  merkleRoot: string;
+  setMerkleRoot: (val: string) => void;
+  merkleProofsJson: string;
+  setMerkleProofsJson: (val: string) => void;
+  mintCalldata: string;
+  setMintCalldata: (val: string) => void;
 }
 
 export default function SniperConfig({
@@ -62,9 +69,6 @@ export default function SniperConfig({
   priorityTipGwei,
   setPriorityTipGwei,
 
-  mode,
-  setMode,
-
   useAllWallets,
   setUseAllWallets,
 
@@ -77,10 +81,33 @@ export default function SniperConfig({
   setCollectionName,
   setCollectionSymbol,
   setCollectionImage,
+  phaseType,
+  setPhaseType,
+  merkleRoot,
+  setMerkleRoot,
+  merkleProofsJson,
+  setMerkleProofsJson,
+  mintCalldata,
+  setMintCalldata,
 }: SniperConfigProps) {
   const [fetchingInfo, setFetchingInfo] = useState(false);
 
   const [inspectError, setInspectError] = useState("");
+  const burnerAddresses = (() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const wallets = JSON.parse(localStorage.getItem("shift_burner_wallets") ?? "[]") as { address?: string }[];
+      return wallets.flatMap((wallet) => (wallet.address ? [wallet.address] : []));
+    } catch {
+      return [];
+    }
+  })();
+
+  const eligibilityIcon = (status: WalletEligibility) => {
+    if (status === "VERIFIED") return <CircleCheck size={14} className="text-shift-lime" />;
+    if (status === "NOT_VERIFIED") return <CircleX size={14} className="text-red-400" />;
+    return <CircleHelp size={14} className="text-amber-400" />;
+  };
 
   const handleContractChange = async (address: string) => {
     setTargetContract(address);
@@ -161,38 +188,7 @@ export default function SniperConfig({
         </div>
       </div>
 
-      <div className="mb-6">
-        <label className="block text-xs text-shift-textMuted mb-2 font-mono uppercase">Execution Mode</label>
-
-        <div className="flex bg-slate-900 border border-slate-700 rounded-xl p-1">
-          <button
-            type="button"
-            onClick={() => setMode("BURNER")}
-            disabled={isArmed}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${
-              mode === "BURNER" ? "bg-shift-lime text-shift-navy" : "text-shift-textMuted hover:text-white"
-            }`}
-          >
-            <Zap size={16} />
-            PUBLIC / FCFS (Burner)
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setMode("PRESIGN")}
-            disabled={isArmed}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${
-              mode === "PRESIGN" ? "bg-shift-cyan text-shift-navy" : "text-shift-textMuted hover:text-white"
-            }`}
-          >
-            <ShieldCheck size={16} />
-            WL PHASE (Pre-Sign)
-          </button>
-        </div>
-      </div>
-
-      {mode === "BURNER" && (
-        <div className="mb-6 flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+      <div className="mb-6 flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-xl p-4">
           <div>
             <label className="flex items-center gap-2 text-sm font-bold text-shift-textMain cursor-pointer">
               <input
@@ -211,8 +207,58 @@ export default function SniperConfig({
                 : 'Uses only the wallet marked "Active Sniper Target".'}
             </p>
           </div>
-        </div>
-      )}
+      </div>
+
+      <div className="mb-6 bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+        <label className="block text-xs text-shift-textMuted mb-2 font-mono uppercase">Mint Phase</label>
+        <select
+          value={phaseType}
+          onChange={(event) => setPhaseType(event.target.value as typeof phaseType)}
+          disabled={isArmed}
+          className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 font-mono text-sm text-white"
+        >
+          <option value="PUBLIC">Public</option>
+          <option value="GUARANTEED_WL">Guaranteed WL</option>
+          <option value="FCFS_WL">FCFS WL</option>
+        </select>
+
+        {phaseType !== "PUBLIC" && (
+          <div className="space-y-3 mt-4">
+            <input
+              value={merkleRoot}
+              onChange={(event) => setMerkleRoot(event.target.value)}
+              disabled={isArmed}
+              placeholder="Merkle root (0x...)"
+              className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 font-mono text-xs text-white"
+            />
+            <textarea
+              value={merkleProofsJson}
+              onChange={(event) => setMerkleProofsJson(event.target.value)}
+              disabled={isArmed}
+              rows={3}
+              placeholder={'{"0xWalletAddress":["0xProofNode"]}'}
+              className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 font-mono text-xs text-white"
+            />
+            <textarea
+              value={mintCalldata}
+              onChange={(event) => setMintCalldata(event.target.value)}
+              disabled={isArmed}
+              rows={2}
+              placeholder="Encoded WL mint calldata (0x...). Required for this first WL build."
+              className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 font-mono text-xs text-white"
+            />
+            <p className="text-[11px] text-slate-500">Address-leaf Merkle proofs are checked locally. Signature-based phases need their collection-specific payload.</p>
+            {burnerAddresses.length > 0 && (
+              <div className="space-y-1 text-xs font-mono">
+                {burnerAddresses.map((address) => {
+                  const status = getWalletEligibility(address as `0x${string}`, phaseType, merkleRoot, merkleProofsJson);
+                  return <div key={address} className="flex items-center gap-2">{eligibilityIcon(status)} {address.slice(0, 8)}...{address.slice(-6)} {status}</div>;
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="space-y-4 mb-6">
         <div>
@@ -319,15 +365,11 @@ export default function SniperConfig({
         type="button"
         onClick={onToggleArm}
         disabled={loading}
-        className={`w-full font-black text-xl py-4 rounded-lg flex items-center justify-center gap-3 transition-all ${
-          mode === "PRESIGN"
-            ? "bg-shift-cyan hover:bg-[#22a6e0] text-shift-navy"
-            : "bg-shift-lime hover:bg-shift-limeHover text-shift-navy"
-        } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
+        className={`w-full font-black text-xl py-4 rounded-lg flex items-center justify-center gap-3 transition-all bg-shift-lime hover:bg-shift-limeHover text-shift-navy ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
       >
         <Play fill="currentColor" size={24} />
 
-        {loading ? "PROCESSING..." : mode === "PRESIGN" ? "SIGN & ARM SNIPER" : "ARM BURNER"}
+        {loading ? "PROCESSING..." : "ARM BURNER"}
       </button>
     </div>
   );
