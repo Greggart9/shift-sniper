@@ -35,11 +35,36 @@ interface ActiveTask {
 interface ActiveSnipesListProps {
   refreshTrigger: number; // Used to trigger re-fetches when a new task is armed
   onTaskDisarmed: () => void;
+  maxTasks?: number; // Maximum number of tasks to display (default: unlimited)
 }
 
-export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed }: ActiveSnipesListProps) {
+export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed, maxTasks }: ActiveSnipesListProps) {
   const [tasks, setTasks] = useState<ActiveTask[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
+
+  const isTaskActive = (task: ActiveTask): boolean => {
+    // Keep all active/in-progress statuses
+    const activeStatuses = ["ARMED", "WAITING", "SCHEDULED", "READY", "BROADCASTING"];
+    if (activeStatuses.includes(task.status)) {
+      return true;
+    }
+
+    // For CONFIRMED and FAILED, keep only if recent (within 5 hours)
+    if (task.status === "CONFIRMED" || task.status === "FAILED") {
+      const taskTime = new Date(task.endsAt || task.scheduledFor || new Date()).getTime();
+      const now = new Date().getTime();
+      return now - taskTime < FIVE_HOURS_MS;
+    }
+
+    // Remove EXPIRED and CANCELLED
+    return false;
+  };
+
+  const filteredTasks = tasks.filter(isTaskActive);
+  const displayedTasks = maxTasks ? filteredTasks.slice(0, maxTasks) : filteredTasks;
+  const hiddenTasksCount = filteredTasks.length - displayedTasks.length;
 
   const formatSchedule = (scheduledFor?: string) => {
     if (!scheduledFor) return "Ready now";
@@ -106,11 +131,21 @@ export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed }: Act
   };
 
   return (
-    <div className="bg-shift-card border border-slate-700 rounded-xl p-6 mb-6">
+    <div className="border border-slate-700 bg-slate-950/70 rounded-xl p-6 mb-4">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-bold flex items-center gap-2">
-          <Activity className="text-shift-lime" /> ACTIVE SNIPING TASKS ({tasks.length})
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-sm font-bold flex items-center gap-2">
+            <Activity size={16} className="text-shift-lime" /> ACTIVE SNIPING TASKS ({filteredTasks.length})
+          </h2>
+          {hiddenTasksCount > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 text-xs font-semibold text-amber-400">
+              +{hiddenTasksCount} more on full page
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-700/50 border border-slate-600/50 px-2.5 py-1 text-xs text-shift-textMuted">
+            Clears after 5 hours
+          </span>
+        </div>
         <button
           onClick={fetchTasks}
           className="p-2 bg-slate-900 border border-slate-700 rounded-lg text-shift-textMuted hover:text-white transition-colors"
@@ -120,13 +155,13 @@ export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed }: Act
         </button>
       </div>
 
-      {tasks.length === 0 ? (
-        <div className="text-center py-8 text-slate-500 text-sm border border-dashed border-slate-800 rounded-lg">
+      {filteredTasks.length === 0 ? (
+        <div className="text-center py-8 text-slate-500 text-sm tracking-wider border border-dashed border-slate-800 rounded-lg">
           No active sniper tasks running. Configure a target above and arm your bot.
         </div>
       ) : (
         <div className="space-y-3">
-          {tasks.map((task) => (
+          {displayedTasks.map((task) => (
             <div
               key={task.id}
               className="flex items-center justify-between bg-slate-900/80 border border-slate-800 p-4 rounded-lg font-mono text-xs"
@@ -189,7 +224,7 @@ export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed }: Act
                     onClick={() => void handleRetry(task.id)}
                     className="flex items-center gap-1 bg-amber-950/40 border border-amber-900/50 hover:bg-amber-900/50 text-amber-400 px-3 py-1.5 rounded-md transition-colors"
                   >
-                    <RotateCcw size={14} /> Retry
+                    <RotateCcw size={14}  /> Retry
                   </button>
                 )}
                   {!["FAILED", "CONFIRMED", "EXPIRED", "CANCELLED"].includes(task.status) && (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Play, Sparkles, Lock, Flame, CircleCheck, CircleX, CircleHelp } from "lucide-react";
+import { Play, Sparkles, Lock, Flame, CircleCheck, CircleX, CircleHelp, Target } from "lucide-react";
 import { getWalletEligibility, type WalletEligibility } from "@/lib/eligibility";
 
 interface SniperConfigProps {
@@ -174,22 +174,24 @@ export default function SniperConfig({
   };
 
   return (
-    <div className="bg-shift-card border border-slate-700 rounded-xl p-6 mb-6 relative">
+    <div className="border border-slate-700 bg-slate-950/70 rounded-xl px-6 py-4 mb-4 relative">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-bold flex items-center gap-2">
-          <span className="text-shift-lime">🎯</span>
+
+        <h2 className="font-bold flex items-center gap-2 text-sm tracking-widest">
+          <Target size={15} className="text-shift-lime " />
           SNIPER CONFIGURATION
         </h2>
 
-        <div className="flex items-center gap-1.5 text-xs text-shift-cyan bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg">
+        <div className="flex items-center gap-1.5 text-xs text-shift-cyan bg-slate-900 border border-slate-700 px-3 py-2.5 rounded-lg">
           <Sparkles size={14} className={fetchingInfo ? "animate-spin" : ""} />
 
           {fetchingInfo ? "Scanning Chain..." : "Auto-Sync Active"}
         </div>
       </div>
-
-      <div className="mb-6 flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-xl p-4">
-          <div>
+       
+       {/* FIRST SET */}
+      <div className="mb-4 flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+          <div className="w-1/2">
             <label className="flex items-center gap-2 text-sm font-bold text-shift-textMain cursor-pointer">
               <input
                 type="checkbox"
@@ -207,15 +209,36 @@ export default function SniperConfig({
                 : 'Uses only the wallet marked "Active Sniper Target".'}
             </p>
           </div>
+
+         {/* CONTRACT ADDRESS INPUT */}
+        <div className="w-1/2">
+          <label className="block text-xs text-shift-textMuted mb-2 font-mono uppercase">Target Contract Address</label>
+
+          <input
+            type="text"
+            value={targetContract}
+            onChange={(e) => handleContractChange(e.target.value)}
+            disabled={isArmed}
+            placeholder="0x..."
+            className=" bg-slate-900 border w-full border-slate-700 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-shift-lime"
+          />
+
+          {fetchingInfo && (
+            <p className="text-xs text-shift-cyan mt-2 font-mono">Reading collection data from chain...</p>
+          )}
+
+          {!fetchingInfo && inspectError && <p className="text-xs text-red-400 mt-2 font-mono">{inspectError}</p>}
+        </div>
+
       </div>
 
-      <div className="mb-6 bg-slate-900/60 border border-slate-800 rounded-xl p-4">
-        <label className="block text-xs text-shift-textMuted mb-2 font-mono uppercase">Mint Phase</label>
+      <div className="mb-4 bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+        <label className="block text-xs text-shift-textMuted mb-2 font-mono uppercase tracking-widest">Mint Phase</label>
         <select
           value={phaseType}
           onChange={(event) => setPhaseType(event.target.value as typeof phaseType)}
           disabled={isArmed}
-          className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 font-mono text-sm text-white"
+          className="w-full bg-slate-950 border cursor-pointer border-slate-700 rounded-md p-3 font-mono text-sm text-white"
         >
           <option value="PUBLIC">Public</option>
           <option value="GUARANTEED_WL">Guaranteed WL</option>
@@ -229,7 +252,7 @@ export default function SniperConfig({
               onChange={(event) => setMerkleRoot(event.target.value)}
               disabled={isArmed}
               placeholder="Merkle root (0x...)"
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 font-mono text-xs text-white"
+              className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 font-mono text-xs text-white"
             />
             <textarea
               value={merkleProofsJson}
@@ -237,7 +260,7 @@ export default function SniperConfig({
               disabled={isArmed}
               rows={3}
               placeholder={'{"0xWalletAddress":["0xProofNode"]}'}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 font-mono text-xs text-white"
+              className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 font-mono text-xs text-white"
             />
             <textarea
               value={mintCalldata}
@@ -245,7 +268,7 @@ export default function SniperConfig({
               disabled={isArmed}
               rows={2}
               placeholder="Encoded WL mint calldata (0x...). Required for this first WL build."
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 font-mono text-xs text-white"
+              className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 font-mono text-xs text-white"
             />
             <p className="text-[11px] text-slate-500">Address-leaf Merkle proofs are checked locally. Signature-based phases need their collection-specific payload.</p>
             {burnerAddresses.length > 0 && (
@@ -260,29 +283,11 @@ export default function SniperConfig({
         )}
       </div>
 
-      <div className="space-y-4 mb-6">
-        <div>
-          <label className="block text-xs text-shift-textMuted mb-2 font-mono uppercase">Target Contract Address</label>
-
-          <input
-            type="text"
-            value={targetContract}
-            onChange={(e) => handleContractChange(e.target.value)}
-            disabled={isArmed}
-            placeholder="0x..."
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-shift-lime"
-          />
-
-          {fetchingInfo && (
-            <p className="text-xs text-shift-cyan mt-2 font-mono">Reading collection data from chain...</p>
-          )}
-
-          {!fetchingInfo && inspectError && <p className="text-xs text-red-400 mt-2 font-mono">{inspectError}</p>}
-        </div>
+      <div className="space-y-4 mb-4">
 
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="flex items-center justify-between text-xs text-shift-textMuted mb-2 font-mono uppercase">
+            <label className="flex items-center justify-between text-xs text-shift-textMuted mb-2 font-mono tracking-widest uppercase">
               <span>Price (ETH)</span>
 
               <Lock size={12} className="text-slate-500" />
@@ -298,7 +303,7 @@ export default function SniperConfig({
           </div>
 
           <div>
-            <label className="block text-xs text-shift-textMuted mb-2 font-mono uppercase">Quantity</label>
+            <label className="block tracking-widest text-xs text-shift-textMuted mb-2 font-mono uppercase">Quantity</label>
 
             <input
               type="number"
@@ -311,7 +316,7 @@ export default function SniperConfig({
           </div>
 
           <div>
-            <label className="flex items-center justify-between text-xs text-shift-textMuted mb-2 font-mono uppercase">
+            <label className="flex items-center tracking-widest justify-between text-xs text-shift-textMuted mb-2 font-mono uppercase">
               <span>Function</span>
 
               <Lock size={12} className="text-slate-500" />
@@ -329,7 +334,7 @@ export default function SniperConfig({
       </div>
 
       <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 mb-6">
-        <div className="flex items-center gap-2 text-xs font-bold text-amber-400 mb-3">
+        <div className="flex items-center gap-2 text-xs font-bold text-amber-400 mb-2 tracking-widest">
           <Flame size={16} />
           WAR MODE: EIP-1559 GAS CONTROLS
         </div>
@@ -365,7 +370,7 @@ export default function SniperConfig({
         type="button"
         onClick={onToggleArm}
         disabled={loading}
-        className={`w-full font-black text-xl py-4 rounded-lg flex items-center justify-center gap-3 transition-all bg-shift-lime hover:bg-shift-limeHover text-shift-navy ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
+        className={`w-full text-slate-900 text-lg cursor-pointer py-4 rounded-lg tracking-wider flex items-center justify-center gap-3 transition-all border border-cyan-500/40 bg-cyan-400 hover:bg-cyan-600  ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
       >
         <Play fill="currentColor" size={24} />
 

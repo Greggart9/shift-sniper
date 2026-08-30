@@ -34,6 +34,8 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   ImageUp,
+  ChevronDown,
+  Shield,
 } from "lucide-react";
 
 export interface BurnerAccount {
@@ -372,343 +374,320 @@ export default function BurnerWalletManager() {
   };
 
   return (
-    <div className="bg-shift-card border border-slate-700 rounded-xl p-6 mb-6 relative">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-lg font-bold flex items-center gap-2">
-            <Wallet className="text-shift-lime" /> BURNER WALLETS ({wallets.length}/{MAX_WALLETS})
-          </h2>
-          <p className="text-xs text-shift-textMuted mt-1">Manage up to {MAX_WALLETS} burner instances for sniping.</p>
-        </div>
+    <div className="relative">
+      <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-6">
 
-        <div className="flex gap-2">
-          {wallets.length > 0 && (
-            <button
-              onClick={fetchAllBalances}
-              disabled={isFetching}
-              className="p-2.5 bg-slate-900 border border-slate-700 hover:border-slate-600 rounded-lg text-shift-textMuted hover:text-white transition-colors"
-              title="Refresh Balances"
-            >
-              <RefreshCw size={16} className={isFetching ? "animate-spin text-shift-lime" : ""} />
-            </button>
-          )}
+        <aside className="rounded-2xl border border-slate-700 bg-slate-950/70 p-5 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
 
-          <button
-            onClick={() => setShowImportModal(true)}
-            disabled={wallets.length >= MAX_WALLETS}
-            className={`flex items-center gap-2 font-bold py-2.5 px-4 rounded-lg text-sm transition-colors border ${
-              wallets.length >= MAX_WALLETS
-                ? "bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed"
-                : "bg-slate-900 hover:bg-slate-800 text-shift-cyan border-slate-700"
-            }`}
-          >
-            <KeyRound size={16} /> IMPORT
-          </button>
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-700 bg-slate-900 text-shift-lime">
+              <Wallet size={15} />
+            </div>
+            <div className="text-[11px] font-bold tracking-[0.18em] text-shift-textMuted">WALLET UTILITIES</div>
+          </div>
 
-          <button
-            onClick={handleCreateNew}
-            disabled={wallets.length >= MAX_WALLETS}
-            className={`flex items-center gap-2 font-bold py-2.5 px-4 rounded-lg text-sm transition-colors ${
-              wallets.length >= MAX_WALLETS
-                ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
-                : "bg-shift-lime hover:bg-shift-limeHover text-shift-navy shadow-[0_0_15px_rgba(197,224,0,0.2)]"
-            }`}
-          >
-            {wallets.length >= MAX_WALLETS ? (
-              "MAX REACHED"
-            ) : (
-              <>
-                <Plus size={16} /> NEW BURNER
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {wallets.length > 0 && (
-        <div className="mb-6 bg-slate-900/60 border border-slate-800 rounded-xl p-4 space-y-3">
-          <div className="text-xs font-bold text-shift-textMuted uppercase font-mono">Wallet Utilities</div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
               <input
                 type="text"
                 value={fundAmount}
                 onChange={(e) => setFundAmount(e.target.value)}
                 placeholder="0.02"
-                className="w-24 bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-xs text-white focus:border-shift-lime focus:outline-none"
+                className="w-28 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-[13px] text-white outline-none ring-0 placeholder:text-slate-500 focus:border-shift-lime"
               />
-              <span className="text-xs text-shift-textMuted">ETH each</span>
+              <span className="text-[12px] text-shift-textMuted">ETH each</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={handleFundAll}
                 disabled={isFunding || !connectedAddress}
-                className="flex items-center gap-1.5 bg-shift-lime hover:bg-shift-limeHover text-shift-navy font-bold py-2 px-3 rounded-lg text-xs transition-colors disabled:opacity-50"
+                className="rounded-lg bg-shift-lime px-3 py-2 text-sm font-bold text-shift-navy transition hover:bg-shift-lime/90 disabled:opacity-50"
               >
-                <ArrowDownToLine size={14} /> {isFunding ? "Funding..." : "Fund All"}
+                <span className="inline-flex items-center gap-2">
+                  <ArrowDownToLine size={14} />
+                  {isFunding ? "Funding..." : "Fund All"}
+                </span>
+              </button>
+
+              <button
+                onClick={handleWithdrawAll}
+                disabled={isWithdrawing || !connectedAddress}
+                className="rounded-lg border border-cyan-500/40 bg-slate-900 px-3 py-2 text-sm font-bold text-cyan-400 transition hover:bg-slate-800 disabled:opacity-50"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <ArrowUpFromLine size={14} />
+                  {isWithdrawing ? "Withdrawing..." : "Withdraw All"}
+                </span>
               </button>
             </div>
 
-            <button
-              onClick={handleWithdrawAll}
-              disabled={isWithdrawing || !connectedAddress}
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-shift-cyan font-bold py-2 px-3 rounded-lg text-xs transition-colors disabled:opacity-50 border border-slate-700"
-            >
-              <ArrowUpFromLine size={14} /> {isWithdrawing ? "Withdrawing..." : "Withdraw All to Main"}
-            </button>
-
-            <div className="flex flex-wrap items-center gap-2 w-full">
+            <div className="space-y-3 pt-2">
               <input
                 type="text"
                 value={recipientAddress}
                 onChange={(event) => setRecipientAddress(event.target.value)}
                 placeholder="0x recipient address"
-                className="min-w-70 flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-xs text-white focus:border-shift-cyan focus:outline-none"
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-[12px] text-white outline-none placeholder:text-slate-500 focus:border-cyan-500"
                 aria-label="Recipient wallet address"
               />
-              <button
-                onClick={() => void handleSendAllToAddress()}
-                disabled={isWithdrawing || wallets.length === 0}
-                className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-shift-cyan font-bold py-2 px-3 rounded-lg text-xs transition-colors disabled:opacity-50 border border-slate-700"
-              >
-                <ArrowUpFromLine size={14} /> {isWithdrawing ? "Sending..." : "Send All to Address"}
-              </button>
-              <button
-                onClick={() => void handleSendActiveToAddress()}
-                disabled={isWithdrawing || wallets.length === 0}
-                className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-shift-lime font-bold py-2 px-3 rounded-lg text-xs transition-colors disabled:opacity-50 border border-slate-700"
-              >
-                <ArrowUpFromLine size={14} /> Send Active
-              </button>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => void handleSendAllToAddress()}
+                  disabled={isWithdrawing || wallets.length === 0}
+                  className="rounded-lg border border-cyan-500/40 bg-slate-900 px-3 py-2 text-[12px] font-bold text-cyan-400 transition hover:bg-slate-800 disabled:opacity-50"
+                >
+                  Send All to Address
+                </button>
+
+                <button
+                  onClick={() => void handleSendActiveToAddress()}
+                  disabled={isWithdrawing || wallets.length === 0}
+                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-[12px] font-bold text-shift-lime transition hover:bg-slate-800 disabled:opacity-50"
+                >
+                  Send Active
+                </button>
+              </div>
             </div>
 
-            <div className="w-full border-t border-slate-800 pt-3 space-y-2">
-              <div className="text-[11px] font-bold text-shift-textMuted uppercase font-mono">Send All NFTs to Recipient</div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                <input
-                  type="text"
-                  value={nftContract}
-                  onChange={(event) => setNftContract(event.target.value)}
-                  placeholder="NFT contract address"
-                  className="bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-xs text-white focus:border-shift-cyan focus:outline-none"
-                  aria-label="NFT contract address"
-                />
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.18em] text-shift-textMuted">SEND ALL NFTs TO RECIPIENT</div>
+
+              <input
+                type="text"
+                value={nftContract}
+                onChange={(event) => setNftContract(event.target.value)}
+                placeholder="NFT contract address"
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-[12px] text-white outline-none placeholder:text-slate-500 focus:border-cyan-500"
+                aria-label="NFT contract address"
+              />
+
+              <div className="grid grid-cols-[1fr_140px] gap-3">
                 <select
                   value={nftScope}
                   onChange={(event) => setNftScope(event.target.value as "ACTIVE" | "ALL")}
-                  className="bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-xs text-white"
+                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-[12px] text-white outline-none focus:border-cyan-500"
                   aria-label="NFT source wallets"
                 >
                   <option value="ACTIVE">Active burner</option>
                   <option value="ALL">All burners</option>
                 </select>
-                <div className="bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-xs text-slate-400">
-                  ERC-721 Enumerable
+
+                <div className="flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-[12px] text-shift-textMuted">
+                  ERC-721
                 </div>
               </div>
+
               <button
                 onClick={() => void handleSendNfts()}
                 disabled={isWithdrawing || wallets.length === 0}
-                className="flex items-center gap-1.5 bg-shift-cyan hover:bg-cyan-400 text-shift-navy font-bold py-2 px-3 rounded-lg text-xs transition-colors disabled:opacity-50"
+                className="w-full rounded-lg bg-cyan-400 px-3 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-300 disabled:opacity-50"
               >
-                <ImageUp size={14} /> {isWithdrawing ? "Transferring..." : "Send All NFTs"}
+                <span className="inline-flex items-center gap-2">
+                  <ImageUp size={15} />
+                  {isWithdrawing ? "Transferring..." : "Send All NFTs"}
+                </span>
               </button>
             </div>
 
             <button
               onClick={handleExportManifest}
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-red-400 font-bold py-2 px-3 rounded-lg text-xs transition-colors border border-slate-700"
+              className="mt-2 w-full rounded-lg border border-red-500/50 bg-transparent px-3 py-2 text-sm font-bold text-red-400 transition hover:bg-red-500/5"
             >
-              <Download size={14} /> Export Manifest
+              <span className="inline-flex items-center gap-2">
+                <Download size={15} />
+                Export Manifest
+              </span>
             </button>
           </div>
+        </aside>
 
-          {!connectedAddress && (
-            <p className="text-[11px] text-amber-400">
-              Connect a wallet to fund or withdraw — burners will sweep to your connected wallet.
-            </p>
-          )}
-
-          {withdrawResults.length > 0 && (
-            <div className="pt-2 border-t border-slate-800 space-y-1">
-              {withdrawResults.map((r, i) => (
-                <div key={i} className="flex items-center gap-2 text-[11px] font-mono">
-                  <span
-                    className={
-                      r.status === "success"
-                        ? "text-shift-lime"
-                        : r.status === "skipped"
-                          ? "text-amber-400"
-                          : "text-red-400"
-                    }
-                  >
-                    {r.status.toUpperCase()}
-                  </span>
-                  <span className="text-shift-textMuted truncate">{r.address}</span>
-                  <span className="text-shift-textMuted">— {r.detail}</span>
-                </div>
-              ))}
+        <section className="rounded-2xl border border-slate-700 bg-slate-950/70 p-5 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-700 bg-slate-900 text-shift-lime">
+                <Wallet size={15} />
+              </div>
+              <div className="text-[11px] font-bold tracking-[0.18em] text-shift-textMuted">BURNER WALLETS ({wallets.length}/{MAX_WALLETS})</div>
             </div>
-          )}
 
-          {nftResults.length > 0 && (
-            <div className="pt-2 border-t border-slate-800 space-y-1">
-              {nftResults.map((result, index) => (
-                <div key={`${result.tokenId}-${index}`} className="flex items-center gap-2 text-[11px] font-mono">
-                  <span className={result.status === "success" ? "text-shift-lime" : result.status === "skipped" ? "text-amber-400" : "text-red-400"}>
-                    {result.status.toUpperCase()}
-                  </span>
-                  <span className="text-white">Token #{result.tokenId}</span>
-                  <span className="text-shift-textMuted">— {result.detail}</span>
-                  {result.txHash && <span className="text-shift-cyan truncate">{result.txHash}</span>}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+            <div className="flex items-center gap-2">
+              {wallets.length > 0 && (
+                <button
+                  onClick={fetchAllBalances}
+                  disabled={isFetching}
+                  className="flex h-9 w-9 items-center cursor-pointer justify-center rounded-lg border border-slate-700 bg-slate-900 text-shift-textMuted transition hover:border-slate-600 hover:text-white disabled:opacity-50"
+                  title="Refresh Balances"
+                >
+                  <RefreshCw size={14} className={isFetching ? "animate-spin text-shift-lime" : ""} />
+                </button>
+              )}
 
-      {wallets.length === 0 ? (
-        <div className="text-center py-12 border border-dashed border-slate-800 rounded-xl">
-          <p className="text-shift-textMuted text-sm mb-4">No burner wallets created or imported yet.</p>
-          <div className="flex justify-center gap-3">
-            <button
-              onClick={handleCreateNew}
-              className="bg-shift-lime hover:bg-shift-limeHover text-shift-navy font-bold py-2.5 px-6 rounded-lg text-sm transition-colors"
-            >
-              Create New Burner
-            </button>
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="bg-slate-900 border border-slate-700 hover:bg-slate-800 text-shift-cyan font-bold py-2.5 px-6 rounded-lg text-sm transition-colors"
-            >
-              Import Private Key
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {wallets.map((w) => {
-            const isActive = w.id === activeId;
-            const bal = balances[w.id] ?? "0.0000";
-            const isKeyVisible = !!showKeys[w.id];
+              <button
+                onClick={() => setShowImportModal(true)}
+                disabled={wallets.length >= MAX_WALLETS}
+                className="flex items-center gap-2 rounded-sm cursor-pointer border border-slate-700 bg-slate-900 px-3 py-2 text-[11px] font-bold text-shift-cyan transition hover:border-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <KeyRound size={15} />
+                IMPORT
+              </button>
 
-            return (
-              <div
-                key={w.id}
-                className={`p-4 rounded-xl border transition-all ${
-                  isActive
-                    ? "bg-slate-900/90 border-shift-lime shadow-[0_0_15px_rgba(197,224,0,0.1)]"
-                    : "bg-slate-900/40 border-slate-800 hover:border-slate-700"
+              <button
+                onClick={handleCreateNew}
+                disabled={wallets.length >= MAX_WALLETS}
+                className={`rounded-sm px-3 py-2 text-[11px] cursor-pointer  font-bold transition ${
+                  wallets.length >= MAX_WALLETS
+                    ? "cursor-not-allowed border border-slate-700 bg-slate-800 text-slate-500"
+                    : "bg-shift-lime text-shift-navy hover:bg-shift-lime/90"
                 }`}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => handleSetActive(w.id)}
-                      className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${
-                        isActive
-                          ? "bg-shift-lime border-shift-lime text-shift-navy"
-                          : "border-slate-600 hover:border-slate-400"
-                      }`}
-                      title="Set as Active Target"
-                    >
-                      {isActive && <Check size={14} strokeWidth={3} />}
-                    </button>
-                    <span className="font-bold text-sm">{w.label}</span>
-                    {isActive && (
-                      <span className="text-[10px] bg-shift-lime/20 text-shift-lime border border-shift-lime/30 px-2 py-0.5 rounded-full font-mono uppercase">
-                        Active Sniper Target
-                      </span>
-                    )}
-                  </div>
+                {wallets.length >= MAX_WALLETS ? "MAX REACHED" : "NEW BURNER"}
+              </button>
+            </div>
+          </div>
 
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1.5 font-mono text-xs">
-                      <Coins size={14} className="text-shift-lime" />
-                      <span className="text-shift-lime font-bold">{bal} ETH</span>
+          <div className="space-y-4">
+            {wallets.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-12 text-center text-shift-textMuted">
+                No burner wallets created yet.
+              </div>
+            ) : (
+              wallets.map((w) => {
+                const isActive = w.id === activeId;
+                const bal = balances[w.id] ?? "0.0000";
+                const isKeyVisible = !!showKeys[w.id];
+
+                return (
+                  <div
+                    key={w.id}
+                    className={`rounded-xl border p-4 ${
+                      isActive
+                        ? "border-shift-lime/50 bg-slate-900/90 shadow-[0_0_18px_rgba(197,224,0,0.08)]"
+                        : "border-slate-700 bg-slate-900/30"
+                    }`}
+                  >
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleSetActive(w.id)}
+                          className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                            isActive
+                              ? "border-shift-lime bg-shift-lime text-slate-950"
+                              : "border-slate-500 bg-slate-900 text-transparent hover:border-slate-400"
+                          }`}
+                          title="Set as Active Target"
+                        >
+                          {isActive && <Check size={12} strokeWidth={3} />}
+                        </button>
+
+                        <span className="text-[15px] font-bold text-white">{w.label}</span>
+
+                        {isActive && (
+                          <span className="rounded-full border border-shift-lime/40 bg-shift-lime/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-shift-lime">
+                            ACTIVE SNIPER TARGET
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-[13px] font-bold text-shift-lime">{bal} ETH</span>
+                        <button
+                          onClick={() => handleDelete(w.id)}
+                          className="text-slate-500 transition hover:text-red-400"
+                          title="Delete Burner"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
 
-                    <button
-                      onClick={() => handleDelete(w.id)}
-                      className="text-slate-600 hover:text-red-400 p-1 transition-colors"
-                      title="Delete Burner"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="mb-3 flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950/80 p-2.5">
+                      <span className="text-[12px] font-medium text-shift-textMuted">Address</span>
+                      <span className="flex-1 truncate font-mono text-[12px] text-white">{w.address}</span>
+                      <button
+                        onClick={() => copyToClipboard(w.address, `addr-${w.id}`)}
+                        className="text-shift-lime transition hover:text-lime-300"
+                      >
+                        {copiedId === `addr-${w.id}` ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950/80 p-2.5">
+                      <span className="text-[12px] font-medium text-shift-textMuted">Private Key</span>
+                      <input
+                        readOnly
+                        type={isKeyVisible ? "text" : "password"}
+                        value={w.privateKey}
+                        className="flex-1 bg-transparent font-mono text-[12px] text-red-300 outline-none placeholder:text-red-400"
+                      />
+                      <button
+                        onClick={() => setShowKeys((prev) => ({ ...prev, [w.id]: !prev[w.id] }))}
+                        className="text-slate-400 transition hover:text-white"
+                      >
+                        {isKeyVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                      <button
+                        onClick={() => copyToClipboard(w.privateKey, `pk-${w.id}`)}
+                        className="text-slate-400 transition hover:text-white"
+                      >
+                        <Copy size={16} />
+                      </button>
+                    </div>
                   </div>
-                </div>
+                );
+              })
+            )}
+          </div>
+        </section>
+      </div>
 
-                <div className="flex items-center bg-slate-950 rounded-lg p-2 font-mono text-xs mb-2">
-                  <span className="text-shift-textMuted mr-2 select-none">Address:</span>
-                  <span className="text-white flex-1 truncate">{w.address}</span>
-                  <button
-                    onClick={() => copyToClipboard(w.address, `addr-${w.id}`)}
-                    className="p-1 text-shift-lime hover:bg-slate-800 rounded transition-colors ml-2"
-                  >
-                    {copiedId === `addr-${w.id}` ? <CheckCircle2 size={14} /> : <Copy size={14} />}
-                  </button>
-                </div>
-
-                <div className="flex items-center bg-red-950/20 border border-red-900/30 rounded-lg p-2 font-mono text-xs">
-                  <span className="text-red-400 mr-2 select-none font-bold">Private Key:</span>
-                  <input
-                    readOnly
-                    type={isKeyVisible ? "text" : "password"}
-                    value={w.privateKey}
-                    className="bg-transparent text-red-300 flex-1 focus:outline-none"
-                  />
-                  <button
-                    onClick={() => setShowKeys((prev) => ({ ...prev, [w.id]: !prev[w.id] }))}
-                    className="p-1 text-slate-400 hover:text-white transition-colors ml-2"
-                  >
-                    {isKeyVisible ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
-                  <button
-                    onClick={() => copyToClipboard(w.privateKey, `pk-${w.id}`)}
-                    className="p-1 text-slate-400 hover:text-white transition-colors ml-1"
-                  >
-                    <Copy size={14} />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+      <div className="mt-6 flex items-center justify-between border-t border-slate-800 pt-4 text-[12px] text-shift-textMuted">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center justify-center h-4 w-4 rounded-full border border-slate-600">
+            <Shield size={10} />
+          </span>
+          <span>Your keys are encrypted and never stored.</span>
         </div>
-      )}
+
+        <div className="flex items-center gap-3 text-shift-textMuted">
+          <span className="inline-flex items-center gap-1"><Shield size={12} /> Secure</span>
+          <span>·</span>
+          <span>Private</span>
+          <span>·</span>
+          <span>Non-custodial</span>
+        </div>
+      </div>
 
       {showImportModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-shift-card border border-slate-700 rounded-xl p-6 w-full max-w-md relative">
-            <button
-              onClick={() => {
-                setShowImportModal(false);
-                setImportError(null);
-              }}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white"
-            >
-              <X size={20} />
-            </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-shift-card p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-base font-bold text-shift-cyan">
+                <KeyRound size={18} />
+                IMPORT BURNER PRIVATE KEY
+              </h3>
+              <button onClick={() => { setShowImportModal(false); setImportError(null); }} className="text-slate-400 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
 
-            <h3 className="text-base font-bold flex items-center gap-2 mb-2 text-shift-cyan">
-              <KeyRound size={18} /> IMPORT BURNER PRIVATE KEY
-            </h3>
-            <p className="text-xs text-shift-textMuted mb-4">
-              Paste an existing private key to load it into your local browser vault.
-            </p>
+            <p className="mb-4 text-xs text-shift-textMuted">Paste an existing private key to load it into your local browser vault.</p>
 
             <form onSubmit={handleImportSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs text-shift-textMuted mb-1 font-mono">Private Key (0x...)</label>
+                <label className="mb-1 block text-[11px] font-bold tracking-[0.14em] text-shift-textMuted">PRIVATE KEY (0X...)</label>
                 <input
                   type="password"
                   value={importKeyInput}
                   onChange={(e) => setImportKeyInput(e.target.value)}
                   placeholder="0x..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 font-mono text-xs text-white focus:outline-none focus:border-shift-cyan"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 font-mono text-xs text-white outline-none focus:border-shift-cyan"
                 />
               </div>
 
               {importError && (
-                <div className="bg-red-950/30 border border-red-900/50 p-3 rounded-lg text-xs text-red-400">
+                <div className="rounded-lg border border-red-500/50 bg-red-950/20 px-3 py-2 text-xs text-red-400">
                   {importError}
                 </div>
               )}
@@ -720,13 +699,13 @@ export default function BurnerWalletManager() {
                     setShowImportModal(false);
                     setImportError(null);
                   }}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-colors"
+                  className="rounded-lg bg-slate-800 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-shift-cyan hover:bg-[#22a6e0] text-shift-navy rounded-lg text-xs font-bold transition-colors"
+                  className="rounded-lg bg-shift-cyan px-4 py-2 text-xs font-bold text-shift-navy hover:bg-cyan-300"
                 >
                   Import Wallet
                 </button>

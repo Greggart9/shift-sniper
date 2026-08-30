@@ -2,49 +2,81 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Settings, Clock, FlaskConical, Wallet, Crosshair, BookOpen } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  CreditCard,
+  HelpCircle,
+  History as HistoryIcon,
+  FlaskConical,
+  Terminal,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
+
+interface NavItem {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  badge?: number;
+}
 
 export default function Sidebar() {
   const pathname = usePathname();
 
-  const navItems = [
-    { name: "Sniper Cockpit", href: "/", icon: Crosshair },
-    { name: "Burner Wallet", href: "/burner", icon: Wallet },
-    { name: "Instructions & Rules", href: "/instructions", icon: BookOpen },
-    { name: "Active Snipes", href: "#", icon: Activity },
-    { name: "History", href: "/history", icon: Clock },
-    { name: "Settings", href: "#", icon: Settings },
+  const operationsItems: NavItem[] = [
+    { name: "Sniper", href: "/", icon: Zap },
+    { name: "Burner Wallet", href: "/burner", icon: CreditCard },
+    { name: "Active Snipes", href: "/activeSnipes", icon: Terminal },
+    { name: "History", href: "/history", icon: HistoryIcon },
   ];
 
+  const systemItems: NavItem[] = [{ name: "Instructions", href: "/instructions", icon: HelpCircle }];
+
+  const renderItem = (item: NavItem) => {
+    const isActive = item.href !== "#" && pathname === item.href;
+    const Icon = item.icon;
+    return (
+      <Link
+        key={item.name}
+        href={item.href}
+        className={`flex items-center justify-between px-3 py-2.5 rounded-md border transition-colors ${
+          isActive
+            ? "bg-slate-800/60 border-slate-700/60"
+            : "border-transparent hover:bg-slate-800/30"
+        }`}
+      >
+        <span className="flex items-center gap-3">
+          <Icon size={18} className={isActive ? "text-shift-lime" : "text-shift-textMuted"} />
+          <span className={`text-sm font-medium ${isActive ? "text-white" : "text-shift-textMuted"}`}>
+            {item.name}
+          </span>
+        </span>
+        {!!item.badge && <span className="text-xs font-bold text-amber-400">{item.badge}</span>}
+      </Link>
+    );
+  };
+
   return (
-    <aside className="w-64 border-r border-slate-800 flex flex-col p-6 h-screen sticky top-0">
-      <div className="flex items-center space-x-3 mb-10">
-        <div className="w-10 h-10 bg-shift-lime rounded-full flex items-center justify-center text-shift-navy font-bold text-xl">
-          🦎
+    <aside className="w-64 border-r border-slate-800 flex flex-col p-5 h-screen sticky top-0 bg-[#0B1022]">
+      <div className="flex items-center space-x-3 mb-8 px-1">
+        <div className="w-9 h-9 bg-shift-lime rounded-sm flex items-center justify-center text-slate-900 font-bold text-lg">
+          S
         </div>
-        <h1 className="text-2xl font-bold tracking-widest">SHIFT</h1>
+        <div className="flex flex-col">
+          <h1 className="text-sm font-bold tracking-widest text-slate-300">SHIFT</h1>
+          <p className="text-sm tracking-[0.06em] text-slate-400 ">Sniping cockpit</p>
+        </div>
       </div>
 
-      <nav className="flex-1 space-y-4">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${
-                isActive
-                  ? "text-shift-lime bg-slate-800/50 border-shift-lime/20"
-                  : "text-shift-textMuted hover:text-white border-transparent"
-              }`}
-            >
-              <Icon size={20} />
-              <span className="font-medium">{item.name}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      <div className="mb-2 px-3 text-[10px] font-bold uppercase tracking-wider text-shift-textMuted">
+        Operations
+      </div>
+      <nav className="space-y-1 mb-8">{operationsItems.map(renderItem)}</nav>
+
+      <div className="mb-2 px-3 text-[10px] font-bold uppercase tracking-wider text-shift-textMuted">
+        System
+      </div>
+      <nav className="space-y-1">{systemItems.map(renderItem)}</nav>
 
       <div className="mt-auto p-4 rounded-xl border border-yellow-500/50 bg-yellow-950/20 text-sm">
         <div className="flex items-center space-x-2 mb-2 text-yellow-400">

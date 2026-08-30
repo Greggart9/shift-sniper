@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useChainId, useSwitchChain } from "wagmi";
+import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { toast } from "sonner";
 
+import LandingPage from "@/components/LandingPage";
 import DoctorPanel from "@/components/DoctorPanel";
 import Sidebar from "@/components/Sidebar";
 import SniperConfig from "@/components/SniperConfig";
@@ -121,6 +122,7 @@ const TASK_STORAGE_KEY = "shift_sniper_task_ids";
 const POLL_INTERVAL = 1500;
 
 export default function Home() {
+  const { isConnected } = useAccount();
   const connectedChainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
   const mode = "BURNER" as const;
@@ -738,7 +740,7 @@ export default function Home() {
 
       addLog(`📍 Contract: ${targetContract}`);
 
-      addLog(`🖼 Requested NFT quantity: ${maxQuantity}`);
+      addLog(`🖼️ Requested NFT quantity: ${maxQuantity}`);
 
       setRefreshTrigger((previous) => previous + 1);
 
@@ -756,23 +758,29 @@ export default function Home() {
     }
   };
 
+  if (!isConnected) {
+    return <LandingPage />;
+  }
+
   // Render
 
   return (
-    <div className="min-h-screen bg-shift-navy text-shift-textMain flex font-sans">
+    <div className=" bg-[#0B1022] flex">
       <Sidebar />
 
-      <main className="flex-1 p-8 overflow-y-auto max-w-7xl mx-auto">
-        <header className="flex justify-between items-center mb-8 gap-4">
+      <main className="flex-1 px-8 py-6 overflow-y-auto max-w-7xl mx-auto">
+
+        <header className="flex justify-between items-center mb-6 gap-4 ">
           <div className="flex items-center gap-3">
             <label className="sr-only" htmlFor="sniper-chain">
               Network
             </label>
+            
             <select
               id="sniper-chain"
               value={selectedChainId}
               onChange={(event) => void handleChainChange(Number(event.target.value))}
-              className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+              className="bg-slate-900 border cursor-pointer border-slate-700 rounded-md px-3 py-3 text-sm tracking-widest text-white"
             >
               {SUPPORTED_CHAINS.map((config) => (
                 <option key={config.id} value={config.id}>
@@ -780,12 +788,13 @@ export default function Home() {
                 </option>
               ))}
             </select>
+           
           </div>
 
-          <div className="bg-shift-card border border-slate-700 px-6 py-3 rounded-lg flex items-center justify-between min-w-55">
+          <div className="text-xs  bg-shift-card border border-slate-700 px-4 py-3 rounded-lg flex gap-2 tracking-widest items-center justify-between min-w-55">
             <span className="text-shift-textMuted">{selectedChain.label} Gas</span>
 
-            <span className="font-mono text-shift-lime">12.4 Gwei</span>
+            <span className=" text-shift-lime">12.4 Gwei</span>
           </div>
         </header>
 
@@ -817,8 +826,8 @@ export default function Home() {
           setMerkleRoot={setMerkleRoot}
           merkleProofsJson={merkleProofsJson}
           setMerkleProofsJson={setMerkleProofsJson}
-                    mintCalldata={mintCalldata}
-                    setMintCalldata={setMintCalldata}
+          mintCalldata={mintCalldata}
+          setMintCalldata={setMintCalldata}
           isArmed={false}
           loading={loading}
           onToggleArm={handleArmSniper}
@@ -867,6 +876,7 @@ export default function Home() {
           onTaskDisarmed={() => {
             addLog("🛑 Snipe task disarmed by user.");
           }}
+          maxTasks={1}
         />
 
         <LiveTerminal logs={logs} />

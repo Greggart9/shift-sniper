@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useAccount } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { CheckCircle2, Clock3, RefreshCw, XCircle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAccount, useChainId } from "wagmi";
+import { CheckCircle2, Clock3, Shield, XCircle, ExternalLink, History as HistoryIcon } from "lucide-react";
 
 import LandingPage from "@/components/LandingPage";
 import Sidebar from "@/components/Sidebar";
+import { DEFAULT_CHAIN_ID, getChainConfig, SUPPORTED_CHAINS } from "@/lib/chains";
 
 interface TradeLog {
   id: string;
@@ -18,10 +18,24 @@ interface TradeLog {
   errorMessage?: string;
 }
 
+const MAX_HISTORY_ITEMS = 5;
+
 export default function HistoryPage() {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
+  const connectedChainId = useChainId();
+  const chainId = SUPPORTED_CHAINS.some((chain) => chain.id === connectedChainId)
+    ? connectedChainId
+    : DEFAULT_CHAIN_ID;
+  const chainLabel = getChainConfig(chainId).label;
+  const shortAddress = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "0x358...Fb0";
+
   const [logs, setLogs] = useState<TradeLog[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const recentLogs = useMemo(
+    () => [...logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, MAX_HISTORY_ITEMS),
+    [logs],
+  );
 
   const fetchHistory = useCallback(async () => {
     setLoading(true);
@@ -29,9 +43,12 @@ export default function HistoryPage() {
       const response = await fetch("/api/history", { cache: "no-store" });
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.error ?? "Failed to retrieve execution history.");
-      setLogs(data.history);
+
+      const trimmed = Array.isArray(data.history) ? data.history.slice(0, MAX_HISTORY_ITEMS) : [];
+      setLogs(trimmed);
     } catch (error) {
       console.error("Failed to fetch history:", error);
+      setLogs([]);
     } finally {
       setLoading(false);
     }
@@ -47,70 +64,136 @@ export default function HistoryPage() {
   if (!isConnected) return <LandingPage />;
 
   return (
-    <div className="min-h-screen bg-shift-navy text-shift-textMain flex font-sans">
+    <div className="h-screen w-screen bg-[#0B1022] text-shift-textMain flex overflow-hidden">
       <Sidebar />
-      <main className="flex-1 p-8 overflow-y-auto max-w-7xl mx-auto">
-        <header className="flex justify-end items-center mb-8">
-          <ConnectButton showBalance={false} />
-        </header>
-        <section className="bg-shift-card border border-slate-700 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold flex items-center gap-2 text-white">
-              <Clock3 className="text-shift-cyan" /> EXECUTION LOGS
-            </h2>
-            <button
-              type="button"
-              onClick={() => void fetchHistory()}
-              disabled={loading}
-              aria-label="Refresh execution logs"
-              className="p-2 bg-slate-900 border border-slate-700 rounded-lg text-shift-textMuted hover:text-white disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
-            >
-              <RefreshCw size={16} className={loading ? "animate-spin text-shift-cyan" : ""} />
-            </button>
+
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <div className="border-b border-slate-800 px-8 py-4 bg-shift-navy/50 backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-shift-lime shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
+                <HistoryIcon size={18} />
+              </div>
+
+              <div>
+                <h1 className="text-xl leading-none font-bold tracking-[0.04em] text-white">Execution History</h1>
+                <p className="mt-2 text-sm text-shift-textMuted">Track all completed mint operations</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
+                <span className="h-2.5 w-2.5 rounded-full bg-shift-lime shadow-[0_0_12px_rgba(197,224,0,0.8)]" />
+                <span>{chainLabel}</span>
+              </div>
+
+              <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
+                <span className="h-2.5 w-2.5 rounded-full border border-slate-500 bg-slate-200" />
+                <span>{shortAddress}</span>
+              </div>
+            </div>
           </div>
-          {logs.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 text-sm border border-dashed border-slate-800 rounded-lg">
-              No sniper executions recorded yet.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {logs.map((log) => (
-                <div
-                  key={`${log.id}-${log.timestamp}`}
-                  className={`border p-4 rounded-lg flex items-center justify-between gap-4 transition-colors ${log.status === "SUCCESS" ? "bg-emerald-950/10 border-emerald-900/30 hover:border-emerald-900/60" : "bg-red-950/10 border-red-900/30 hover:border-red-900/60"}`}
-                >
-                  <div className="flex items-center gap-4 min-w-0">
-                    {log.status === "SUCCESS" ? (
-                      <CheckCircle2 className="text-emerald-400 shrink-0" size={24} />
-                    ) : (
-                      <XCircle className="text-red-400 shrink-0" size={24} />
-                    )}
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <span className="text-white font-mono text-sm truncate">{log.targetContract}</span>
-                        <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded uppercase font-bold">
-                          {log.mode}
-                        </span>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-375 p-8">
+            {loading ? (
+              <div className="rounded-xl border border-slate-700 bg-shift-card px-6 py-12 text-center text-shift-textMuted">
+                Loading history...
+              </div>
+            ) : recentLogs.length === 0 ? (
+              <div className="rounded-xl border border-slate-700 bg-shift-card px-6 py-12 text-center text-shift-textMuted">
+                No execution history yet.
+              </div>
+            ) : (
+              <>
+                <div className="space-y-4">
+                  {recentLogs.map((log) => {
+                    const isSuccess = log.status === "SUCCESS";
+                    const time = new Date(log.timestamp);
+                    const formatted = `${time.toLocaleDateString("en-GB")} · ${time.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                      hour12: false,
+                    })}`;
+
+                    return (
+                      <div
+                        key={log.id}
+                        className={`rounded-xl border bg-slate-950/70 p-3 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.05)] ${
+                          isSuccess
+                            ? "border-slate-700 bg-emerald-500/2"
+                            : "border-slate-700 bg-red-500/2"
+                        }`}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-950/70">
+                            {isSuccess ? (
+                              <CheckCircle2 size={15} className="text-emerald-400" />
+                            ) : (
+                              <XCircle size={15} className="text-red-400" />
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs font-mono text-shift-textMuted">{formatted}</span>
+                              <span
+                                className={`text-[11px] font-bold uppercase tracking-[0.16em] ${
+                                  isSuccess ? "text-emerald-400" : "text-red-400"
+                                }`}
+                              >
+                                {log.status}
+                              </span>
+                            </div>
+
+                            <div className="mt-1 flex items-center justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <div className="font-mono text-[15px] text-white break-all">{log.targetContract}</div>
+                                {log.errorMessage && (
+                                  <div className="mt-1 text-sm text-red-300">{log.errorMessage}</div>
+                                )}
+                              </div>
+
+                              {log.txHash && (
+                                <a
+                                  href={`https://robinhood.explorer.com/tx/${log.txHash}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex shrink-0 items-center gap-2 rounded-md border border-neutral-500/40 bg-transparent px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-300 transition hover:bg-red-500/5"
+                                >
+                                  View TX
+                                  <ExternalLink size={14} />
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs text-slate-400 font-mono">
-                        {new Date(log.timestamp).toLocaleString()}
-                        {log.errorMessage && <span className="text-red-400 ml-2">| Error: {log.errorMessage}</span>}
-                      </div>
-                    </div>
-                  </div>
-                  {log.txHash && (
-                    <span
-                      title={log.txHash}
-                      className="max-w-56 truncate text-xs font-mono text-emerald-300 bg-slate-900 px-3 py-2 rounded-lg border border-slate-700"
-                    >
-                      {log.txHash}
-                    </span>
-                  )}
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
+
+                <div className="mt-6 flex items-center justify-between border-t border-slate-800 pt-4 text-[12px] ">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/10 text-[9px] text-slate-300">
+                      <Clock3 className="text-emerald-400" size={9} />
+                    </span>
+                    <span>All times are shown in your local timezone</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-slate-300">
+                    <span className="inline-flex items-center justify-center h-4 w-4 rounded-full border border-slate-600 text-[9px]">
+                      <Shield className="text-emerald-400" size={9} />
+                    </span>
+                    <span>Only the latest {MAX_HISTORY_ITEMS} executions are shown</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </main>
     </div>
   );

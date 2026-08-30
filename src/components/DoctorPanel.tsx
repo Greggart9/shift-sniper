@@ -74,13 +74,13 @@ export default function DoctorPanel() {
     status === "PASS" ? "text-shift-lime" : status === "WARN" ? "text-yellow-400" : "text-red-400";
 
   return (
-    <div className="bg-shift-card border border-slate-700 rounded-lg p-4 mb-6">
+    <div className="border border-slate-700 bg-slate-950/70 rounded-lg px-4 py-2 mb-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-shift-textMain">Pre-Flight Diagnostics</h3>
+        <h3 className="font-semibold text-sm text-shift-textMain tracking-widest">Pre-Flight Diagnostics</h3>
         <button
           onClick={runDiagnostics}
           disabled={loading}
-          className="bg-shift-lime text-shift-navy px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
+          className="bg-shift-lime cursor-pointer text-shift-navy px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
         >
           {loading ? "Running..." : "Run Doctor"}
         </button>
