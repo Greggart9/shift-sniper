@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { toast } from "sonner";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 import LandingPage from "@/components/LandingPage";
 import DoctorPanel from "@/components/DoctorPanel";
@@ -776,7 +777,7 @@ export default function Home() {
               Network
             </label>
             
-            <select
+            {/* <select
               id="sniper-chain"
               value={selectedChainId}
               onChange={(event) => void handleChainChange(Number(event.target.value))}
@@ -787,15 +788,15 @@ export default function Home() {
                   {config.label}
                 </option>
               ))}
-            </select>
+            </select> */}
            
           </div>
-
-          <div className="text-xs  bg-shift-card border border-slate-700 px-4 py-3 rounded-lg flex gap-2 tracking-widest items-center justify-between min-w-55">
+           <ConnectButton showBalance={false} />
+          {/* <div className="text-xs  bg-shift-card border border-slate-700 px-4 py-3 rounded-lg flex gap-2 tracking-widest items-center justify-between min-w-55">
             <span className="text-shift-textMuted">{selectedChain.label} Gas</span>
 
             <span className=" text-shift-lime">12.4 Gwei</span>
-          </div>
+          </div> */}
         </header>
 
         <DoctorPanel />

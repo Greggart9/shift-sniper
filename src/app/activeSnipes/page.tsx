@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAccount, useChainId } from "wagmi";
 
+import { ConnectButton } from "@rainbow-me/rainbowkit"; 
 import LandingPage from "@/components/LandingPage";
 import Sidebar from "@/components/Sidebar";
 import { DEFAULT_CHAIN_ID, getChainConfig, SUPPORTED_CHAINS } from "@/lib/chains";
@@ -38,7 +39,9 @@ export default function ActiveSnipesPage() {
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
+               <ConnectButton showBalance={false} />
+
+              {/* <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
                 <span className="h-2.5 w-2.5 rounded-full bg-shift-lime shadow-[0_0_12px_rgba(197,224,0,0.8)]" />
                 <span>{chainLabel}</span>
               </div>
@@ -46,7 +49,8 @@ export default function ActiveSnipesPage() {
               <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
                 <span className="h-2.5 w-2.5 rounded-full border border-slate-500 bg-slate-200" />
                 <span>{shortAddress}</span>
-              </div>
+              </div> */}
+
             </div>
           </div>
         </div>

@@ -13,7 +13,7 @@ import {
   sendAllBurnersToRecipient,
   downloadWalletManifest,
   type WithdrawResult,
-  sendNftsFromBurner,
+  sendAllNftsFromBurner,
   type NftTransferResult,
 } from "@/lib/walletUtils";
 import {
@@ -71,7 +71,6 @@ export default function BurnerWalletManager() {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawResults, setWithdrawResults] = useState<WithdrawResult[]>([]);
   const [recipientAddress, setRecipientAddress] = useState("");
-  const [nftContract, setNftContract] = useState("");
   const [nftScope, setNftScope] = useState<"ACTIVE" | "ALL">("ACTIVE");
   const [nftResults, setNftResults] = useState<NftTransferResult[]>([]);
 
@@ -322,8 +321,8 @@ export default function BurnerWalletManager() {
 
   const handleSendNfts = async () => {
     const activeWallet = wallets.find((wallet) => wallet.id === activeId) ?? wallets[0];
-    if (!activeWallet || !isAddress(recipientAddress) || !isAddress(nftContract)) {
-      toast.error("Enter a recipient and NFT contract address.");
+    if (!activeWallet || !isAddress(recipientAddress)) {
+      toast.error("Enter a recipient address.");
       return;
     }
     if (activeWallet.address.toLowerCase() === recipientAddress.trim().toLowerCase()) {
@@ -331,7 +330,7 @@ export default function BurnerWalletManager() {
       return;
     }
     const sourceWallets = nftScope === "ALL" ? wallets : [activeWallet];
-    if (!confirm(`Transfer all ERC-721 NFTs in this contract from ${nftScope === "ALL" ? "all burners" : activeWallet.label}? This cannot be undone.`)) {
+    if (!confirm(`Transfer all ERC-721 NFTs from ${nftScope === "ALL" ? "all burners" : activeWallet.label} to ${recipientAddress}? This cannot be undone.`)) {
       return;
     }
 
@@ -340,7 +339,7 @@ export default function BurnerWalletManager() {
     try {
       const resultGroups = await Promise.all(
         sourceWallets.map((wallet) =>
-          sendNftsFromBurner(wallet, recipientAddress.trim(), nftContract.trim(), "ERC721", chainId, "1"),
+          sendAllNftsFromBurner(wallet, recipientAddress.trim(), chainId),
         ),
       );
       const results = resultGroups.flat();
@@ -452,18 +451,9 @@ export default function BurnerWalletManager() {
             </div>
 
             <div className="space-y-3 pt-2">
-              <div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.18em] text-shift-textMuted">SEND ALL NFTs TO RECIPIENT</div>
+              <div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.18em] text-shift-textMuted">SEND ALL NFTs (AUTO-DISCOVER)</div>
 
-              <input
-                type="text"
-                value={nftContract}
-                onChange={(event) => setNftContract(event.target.value)}
-                placeholder="NFT contract address"
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-[12px] text-white outline-none placeholder:text-slate-500 focus:border-cyan-500"
-                aria-label="NFT contract address"
-              />
-
-              <div className="grid grid-cols-[1fr_140px] gap-3">
+              <div className="grid grid-cols-[1fr_160px] gap-3">
                 <select
                   value={nftScope}
                   onChange={(event) => setNftScope(event.target.value as "ACTIVE" | "ALL")}
@@ -475,7 +465,7 @@ export default function BurnerWalletManager() {
                 </select>
 
                 <div className="flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-[12px] text-shift-textMuted">
-                  ERC-721
+                  ERC-721 & ERC-721-C
                 </div>
               </div>
 

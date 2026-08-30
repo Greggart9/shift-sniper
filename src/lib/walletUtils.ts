@@ -98,6 +98,162 @@ const erc1155TransferAbi = [
   },
 ] as const;
 
+/**
+ * Discover all ERC721 contracts that a wallet owns NFTs from by scanning Transfer events
+ */
+async function discoverNftContracts(walletAddress: Address, chainId: number): Promise<Set<Address>> {
+  const client = getPublicClient(getChainConfig(chainId).id);
+  const contracts = new Set<Address>();
+
+  try {
+    // ERC721 Transfer event signature: Transfer(address indexed from, address indexed to, uint256 indexed tokenId)
+    const transferTopic = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a9df523b3ef" as const;
+
+    // Scan for Transfer events where this wallet is the recipient (to)
+    const logs = await client.getLogs({
+      event: {
+        type: "event",
+        name: "Transfer",
+        inputs: [
+          { type: "address", indexed: true, name: "from" },
+          { type: "address", indexed: true, name: "to" },
+          { type: "uint256", indexed: true, name: "tokenId" },
+        ],
+      },
+      args: {
+        to: walletAddress,
+      },
+      fromBlock: "earliest",
+      toBlock: "latest",
+    });
+
+    // Extract unique contract addresses
+    for (const log of logs) {
+      contracts.add(log.address);
+    }
+  } catch (error) {
+    console.error("Failed to discover NFT contracts:", error);
+    // If event scanning fails, return empty set (user must specify contracts)
+  }
+
+  return contracts;
+}
+
+/**
+ * Send all ERC721/ERC721-C NFTs from wallet to recipient (auto-discovers contracts)
+ */
+export async function sendAllNftsFromBurner(
+  wallet: BurnerAccount,
+  recipientText: string,
+  chainId: number = DEFAULT_CHAIN_ID,
+): Promise<NftTransferResult[]> {
+  if (!isAddress(recipientText)) {
+    throw new Error("Enter a valid recipient wallet address.");
+  }
+
+  const recipient = recipientText as Address;
+  const account = privateKeyToAccount(wallet.privateKey);
+  const chainConfig = getChainConfig(chainId);
+  const client = getPublicClient(chainConfig.id);
+  const walletClient = createWalletClient({ account, chain: chainConfig.chain, transport: http(chainConfig.rpcUrl) });
+
+  const results: NftTransferResult[] = [];
+
+  // Discover all NFT contracts for this wallet
+  const contracts = await discoverNftContracts(account.address, chainId);
+
+  if (contracts.size === 0) {
+    throw new Error("No NFT contracts found for this wallet. Make sure the wallet has received NFTs.");
+  }
+
+  // Process each contract
+  for (const contract of contracts) {
+    try {
+      // Get token count for this contract
+      const ownedCount = await client.readContract({
+        address: contract,
+        abi: erc721BalanceAbi,
+        functionName: "balanceOf",
+        args: [account.address],
+      });
+
+      if (ownedCount === 0n) {
+        continue;
+      }
+
+      // Enumerate all token IDs
+      const tokenIds: string[] = [];
+      for (let index = 0n; index < ownedCount; index++) {
+        try {
+          const tokenId = await client.readContract({
+            address: contract,
+            abi: erc721BalanceAbi,
+            functionName: "tokenOfOwnerByIndex",
+            args: [account.address, index],
+          });
+          tokenIds.push(tokenId.toString());
+        } catch {
+          // Token may not exist or enumeration may not be supported
+          continue;
+        }
+      }
+
+      // Transfer each token
+      for (const tokenIdText of tokenIds) {
+        try {
+          const tokenId = BigInt(tokenIdText.trim());
+
+          // Verify ownership
+          try {
+            const owner = await client.readContract({
+              address: contract,
+              abi: erc721BalanceAbi,
+              functionName: "ownerOf",
+              args: [tokenId],
+            });
+            if (owner.toLowerCase() !== account.address.toLowerCase()) {
+              results.push({ tokenId: tokenId.toString(), status: "skipped", detail: "Burner does not own this token." });
+              continue;
+            }
+          } catch {
+            // ownerOf may fail for some contracts, proceed with transfer attempt
+          }
+
+          const data = encodeFunctionData({
+            abi: erc721TransferAbi,
+            functionName: "safeTransferFrom",
+            args: [account.address, recipient, tokenId],
+          });
+
+          const gas = await client.estimateGas({ account, to: contract, data });
+          const fees = await client.estimateFeesPerGas();
+          const txHash = await walletClient.sendTransaction({
+            account,
+            to: contract,
+            data,
+            gas,
+            maxFeePerGas: fees.maxFeePerGas,
+            maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+          });
+
+          results.push({ tokenId: tokenId.toString(), status: "success", detail: "NFT transfer submitted.", txHash });
+        } catch (error) {
+          results.push({
+            tokenId: tokenIdText,
+            status: "error",
+            detail: error instanceof Error ? error.message : "NFT transfer failed.",
+          });
+        }
+      }
+    } catch (error) {
+      console.error(`Error processing contract ${contract}:`, error);
+      // Continue to next contract
+    }
+  }
+
+  return results;
+}
+
 export async function sendNftsFromBurner(
   wallet: BurnerAccount,
   recipientText: string,
