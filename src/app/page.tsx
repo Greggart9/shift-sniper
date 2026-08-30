@@ -219,9 +219,9 @@ export default function Home() {
         setFunctionName(config.functionName ?? "");
 
 
-        setMaxFeeGwei(config.maxFeeGwei ?? "25");
+        setMaxFeeGwei(config.maxFeeGwei ?? "");
 
-        setPriorityTipGwei(config.priorityTipGwei ?? "5");
+        setPriorityTipGwei(config.priorityTipGwei ?? "");
 
         setUseAllWallets(config.useAllWallets ?? false);
 

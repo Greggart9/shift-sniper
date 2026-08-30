@@ -66,7 +66,7 @@ export default function BurnerWalletManager() {
   const [isFetching, setIsFetching] = useState(false);
 
   // Fund/Withdraw state
-  const [fundAmount, setFundAmount] = useState("0.02");
+  const [fundAmount, setFundAmount] = useState("");
   const [isFunding, setIsFunding] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawResults, setWithdrawResults] = useState<WithdrawResult[]>([]);
