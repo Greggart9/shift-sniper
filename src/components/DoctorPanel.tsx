@@ -74,13 +74,13 @@ export default function DoctorPanel() {
     status === "PASS" ? "text-shift-lime" : status === "WARN" ? "text-yellow-400" : "text-red-400";
 
   return (
-    <div className="border border-slate-700 bg-slate-950/70 rounded-lg px-4 py-2 mb-3">
+    <div className="border border-shift-border bg-shift-surface rounded-lg px-4 py-2 mb-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-sm text-shift-textMain tracking-widest">Pre-Flight Diagnostics</h3>
+        <h3 className="font-semibold text-sm text-shift-head tracking-widest">Pre-Flight Diagnostics</h3>
         <button
           onClick={runDiagnostics}
           disabled={loading}
-          className="bg-shift-lime cursor-pointer text-shift-navy px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
+          className="bg-shift-btn cursor-pointer text-shift-navy px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
         >
           {loading ? "Running..." : "Run Doctor"}
         </button>
@@ -89,11 +89,11 @@ export default function DoctorPanel() {
       {open && (
         <div className="mt-4 space-y-2">
           {results.map((check, i) => (
-            <div key={i} className="flex items-start gap-3 text-sm font-mono border-t border-slate-800 pt-2">
+            <div key={i} className="flex items-start gap-3 text-sm font-mono border-t border-shift-border pt-2">
               <span className={`${statusColor(check.status)} font-bold w-12 shrink-0`}>{check.status}</span>
               <div>
-                <span className="text-shift-textMain">{check.name}</span>
-                <div className="text-shift-textMuted">{check.detail}</div>
+                <span >{check.name}</span>
+                <div className="text-shift-Muted">{check.detail}</div>
               </div>
             </div>
           ))}

@@ -65,22 +65,22 @@ export default function HistoryPage() {
   if (!isConnected) return <LandingPage />;
 
   return (
-    <div className="h-screen w-screen bg-[#0B1022] text-shift-textMain flex overflow-hidden">
+    <div className="h-screen w-screen text-shift-text flex overflow-hidden">
       <Sidebar />
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        <div className="border-b border-slate-800 px-8 py-4 bg-shift-navy/50 backdrop-blur-sm">
+        <div className="border-b bg-shift-bg border-shift-border px-8 py-4 backdrop-blur-sm">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-shift-lime shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-shift-icon bg-slate-900 text-shift-icon">
                 <HistoryIcon size={18} />
               </div>
 
               <div>
-                <h1 className="text-xl leading-none font-bold tracking-[0.04em] text-white">Execution History</h1>
-                <p className="mt-2 text-sm text-shift-textMuted">Track all completed mint operations</p>
+                <h1 className="text-xl leading-none font-bold tracking-[0.04em]">Execution History</h1>
+                <p className="mt-2 text-sm text-shift-Muted">Track all completed mint operations</p>
               </div>
-            </div>
+            </div> 
            
             <div className="flex items-center gap-3">
               
@@ -102,11 +102,11 @@ export default function HistoryPage() {
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-375 p-8">
             {loading ? (
-              <div className="rounded-xl border border-slate-700 bg-shift-card px-6 py-12 text-center text-shift-textMuted">
+              <div className="rounded-xl border border-shift-border bg-shift-card px-6 py-12 text-center text-shift-Muted">
                 Loading history...
               </div>
             ) : recentLogs.length === 0 ? (
-              <div className="rounded-xl border border-slate-700 bg-shift-card px-6 py-12 text-center text-shift-textMuted">
+              <div className="rounded-xl border border-shift-border bg-shift-card px-6 py-12 text-center text-shift-Muted">
                 No execution history yet.
               </div>
             ) : (
@@ -125,18 +125,18 @@ export default function HistoryPage() {
                     return (
                       <div
                         key={log.id}
-                        className={`rounded-xl border bg-slate-950/70 p-3 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.05)] ${
+                        className={`rounded-xl border bg-shift-surface p-3 ${
                           isSuccess
-                            ? "border-slate-700 bg-emerald-500/2"
-                            : "border-slate-700 bg-red-500/2"
+                            ? "border-green-500 bg-shift-surface"
+                            : "border-red-500 bg-shift-surface"
                         }`}
                       >
                         <div className="flex items-start gap-4">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-950/70">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-shift-border bg-shift-bg">
                             {isSuccess ? (
-                              <CheckCircle2 size={15} className="text-emerald-400" />
+                              <CheckCircle2 size={15} className="text-green-500" />
                             ) : (
-                              <XCircle size={15} className="text-red-400" />
+                              <XCircle size={15} className="text-red-500" />
                             )}
                           </div>
 
@@ -145,7 +145,7 @@ export default function HistoryPage() {
                               <span className="text-xs font-mono text-shift-textMuted">{formatted}</span>
                               <span
                                 className={`text-[11px] font-bold uppercase tracking-[0.16em] ${
-                                  isSuccess ? "text-emerald-400" : "text-red-400"
+                                  isSuccess ? "text-green-500" : "text-red-500"
                                 }`}
                               >
                                 {log.status}
@@ -156,7 +156,7 @@ export default function HistoryPage() {
                               <div className="min-w-0 flex-1">
                                 <div className="font-mono text-[15px] text-white break-all">{log.targetContract}</div>
                                 {log.errorMessage && (
-                                  <div className="mt-1 text-sm text-red-300">{log.errorMessage}</div>
+                                  <div className="mt-1 text-sm text-red-500">{log.errorMessage}</div>
                                 )}
                               </div>
 
@@ -165,7 +165,7 @@ export default function HistoryPage() {
                                   href={`https://robinhood.explorer.com/tx/${log.txHash}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex shrink-0 items-center gap-2 rounded-md border border-neutral-500/40 bg-transparent px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-300 transition hover:bg-red-500/5"
+                                  className="inline-flex shrink-0 items-center gap-2 rounded-md border border-shift-border bg-transparent px-3 py-2 text-[11px] uppercase tracking-[0.12em]"
                                 >
                                   View TX
                                   <ExternalLink size={14} />
@@ -179,17 +179,17 @@ export default function HistoryPage() {
                   })}
                 </div>
 
-                <div className="mt-6 flex items-center justify-between border-t border-slate-800 pt-4 text-[12px] ">
+                <div className="mt-6 flex items-center justify-between border-t border-shift-border pt-4 text-[12px] ">
                   <div className="flex items-center gap-2">
                     <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/10 text-[9px] text-slate-300">
-                      <Clock3 className="text-emerald-400" size={9} />
+                      <Clock3 className="text-shift-icon" size={9} />
                     </span>
                     <span>All times are shown in your local timezone</span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-slate-300">
+                  <div className="flex items-center gap-2 ">
                     <span className="inline-flex items-center justify-center h-4 w-4 rounded-full border border-slate-600 text-[9px]">
-                      <Shield className="text-emerald-400" size={9} />
+                      <Shield className="text-shift-icon" size={9} />
                     </span>
                     <span>Only the latest {MAX_HISTORY_ITEMS} executions are shown</span>
                   </div>

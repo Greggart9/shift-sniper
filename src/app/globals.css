@@ -7,12 +7,22 @@
   --color-shift-lime: #C5E000;
   --color-shift-limeHover: #a8c000;
   --color-shift-cyan: #00E5FF;
-  --color-shift-textMain: #F8FAFC;
-  --color-shift-textMuted: #94A3B8;
+  --color-shift-bg: #0B0B0F;        /* near-black base, slightly cooler */
+  --color-shift-surface: #15141B;   /* cards/panels, subtle lift off bg */
+  --color-shift-input: #101014;     /* inputs, slightly recessed */
+  --color-shift-border: #2A2833;    /* quiet border, not a color statement */
+
+  --color-shift-text: #F5F5F7;      /* off-white, easier on eyes than pure white */
+  --color-shift-Muted: #9494A0;     /* muted gray-violet, ties to accent */
+
+  --color-shift-accent: #1B1A24;    /* violet — your single "voice" color */
+  --color-shift-btn: #8B5CF6;       /* reuse accent for primary buttons */
+  --color-shift-icon: #c6e000;      /* lighter violet tint for icons */
+  --color-shift-head: #F5F5F7;  
   --font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
-  background-color: var(--color-shift-navy);
-  color: var(--color-shift-textMain);
+  background-color: var(--color-shift-bg);
+  color: var(--color-shift-text);
 }

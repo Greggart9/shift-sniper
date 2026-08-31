@@ -766,7 +766,7 @@ export default function Home() {
   // Render
 
   return (
-    <div className=" bg-[#0B1022] flex">
+    <div className="flex">
       <Sidebar />
 
       <main className="flex-1 px-8 py-6 overflow-y-auto max-w-7xl mx-auto">

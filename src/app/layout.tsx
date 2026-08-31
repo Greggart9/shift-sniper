@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={spaceGrotesk.variable}>
-      <body className="bg-[#0B1022] text-shift-textMain font-sans m-0 p-0 ">
+      <body className=" bg-red-400 text-shift-textMain font-sans m-0 p-0 ">
         <Providers>
           <ResponsiveGuard>
             {children}

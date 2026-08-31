@@ -22,24 +22,24 @@ export default function BurnerPage() {
   }
 
   return (
-    <div className="h-screen w-screen bg-[#0B1022] text-shift-textMain flex overflow-hidden">
+    <div className="h-screen w-screen text-shift-textMain flex overflow-hidden">
       <Sidebar />
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        <div className="border-b border-slate-800 px-8 py-4 bg-shift-navy/50 backdrop-blur-sm">
+        <div className="border-b border-shift-border px-8 py-4 bg-shift-bg backdrop-blur-sm">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h1 className="text-xl leading-none font-bold tracking-[0.04em] text-white">Burner Wallet Manager</h1>
-              <p className="text-sm text-shift-textMuted mt-1">Create and manage burner accounts for minting</p>
+              <h1 className="text-xl leading-none font-bold tracking-[0.04em]">Burner Wallet Manager</h1>
+              <p className="text-sm text-shift-Muted mt-1">Create and manage burner accounts for minting</p>
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
-                <span className="h-2.5 w-2.5 rounded-full bg-shift-lime shadow-[0_0_12px_rgba(197,224,0,0.8)]" />
+              <div className="flex items-center gap-2 rounded-xl border border-shift-border bg-shift-surface px-3 py-2.5 text-sm">
+                <span className="h-2.5 w-2.5 rounded-full bg-shift-btn" />
                 <span>{chainLabel}</span>
               </div>
 
-              <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
+              <div className="flex items-center gap-2 rounded-xl border border-shift-border bg-shift-surface px-3 py-2.5 text-sm">
                 <span className="h-2.5 w-2.5 rounded-full border border-slate-500 bg-slate-200" />
                 <span>{shortAddress}</span>
               </div>

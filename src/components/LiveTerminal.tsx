@@ -77,9 +77,9 @@ export default function LiveTerminal({ logs }: LiveTerminalProps) {
   };
 
   return (
-    <div className="bg-black border border-slate-700 rounded-xl overflow-hidden font-mono text-xs">
-      <div className="text-shift-textMuted flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-black/80">
-        <span className="text-shift-lime flex items-center gap-2">
+    <div className="bg-black border border-shift-border rounded-xl overflow-hidden font-mono text-xs">
+      <div className="text-shift-Muted flex items-center justify-between px-4 py-3 border-b border-shift-border bg-black/80">
+        <span className="text-shift-head flex items-center gap-2">
           <Terminal size={14} />
 
           <span>LIVE ENGINE TERMINAL</span>

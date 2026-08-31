@@ -131,11 +131,11 @@ export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed, maxTa
   };
 
   return (
-    <div className="border border-slate-700 bg-slate-950/70 rounded-xl p-6 mb-4">
+    <div className="border border-shift-border bg-shift-surface rounded-xl p-6 mb-4">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <h2 className="text-sm font-bold flex items-center gap-2">
-            <Activity size={16} className="text-shift-lime" /> ACTIVE SNIPING TASKS ({filteredTasks.length})
+          <h2 className="text-sm font-bold flex items-center gap-2 text-shift-head">
+            <Activity size={16} className="text-shift-icon" /> ACTIVE SNIPING TASKS ({filteredTasks.length})
           </h2>
           {hiddenTasksCount > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 text-xs font-semibold text-amber-400">
@@ -148,7 +148,7 @@ export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed, maxTa
         </div>
         <button
           onClick={fetchTasks}
-          className="p-2 bg-slate-900 border border-slate-700 rounded-lg text-shift-textMuted hover:text-white transition-colors"
+          className="p-2 bg-shift-bg border border-shift-border rounded-lg text-shift-textMuted hover:text-white transition-colors"
           title="Refresh List"
         >
           <RefreshCw size={14} className={loading ? "animate-spin text-shift-lime" : ""} />
@@ -164,10 +164,10 @@ export default function ActiveSnipesList({ refreshTrigger, onTaskDisarmed, maxTa
           {displayedTasks.map((task) => (
             <div
               key={task.id}
-              className="flex items-center justify-between bg-slate-900/80 border border-slate-800 p-4 rounded-lg font-mono text-xs"
+              className="flex items-center justify-between bg-shift-accent border border-shift-border p-4 rounded-lg font-mono text-xs"
             >
               <div className="flex items-center gap-4">
-                <span
+                <span 
                   className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 ${
                     task.executionMode === "BURNER"
                       ? "bg-shift-lime/10 text-shift-lime border border-shift-lime/20"

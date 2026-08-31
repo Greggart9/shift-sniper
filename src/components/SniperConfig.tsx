@@ -174,15 +174,15 @@ export default function SniperConfig({
   };
 
   return (
-    <div className="border border-slate-700 bg-slate-950/70 rounded-xl px-6 py-4 mb-4 relative">
+    <div className="border border-shift-border bg-shift-surface rounded-xl px-6 py-4 mb-4 relative">
       <div className="flex items-center justify-between mb-6">
 
-        <h2 className="font-bold flex items-center gap-2 text-sm tracking-widest">
-          <Target size={15} className="text-shift-lime " />
+        <h2 className="font-bold text-shift-head flex items-center gap-2 text-sm tracking-widest">
+          <Target size={15} className="text-shift-icon " />
           SNIPER CONFIGURATION
         </h2>
 
-        <div className="flex items-center gap-1.5 text-xs text-shift-cyan bg-slate-900 border border-slate-700 px-3 py-2.5 rounded-lg">
+        <div className="flex items-center gap-1.5 text-xs text-shift-cyan bg-shift-bg border border-shift-border px-3 py-2.5 rounded-lg">
           <Sparkles size={14} className={fetchingInfo ? "animate-spin" : ""} />
 
           {fetchingInfo ? "Scanning Chain..." : "Auto-Sync Active"}
@@ -190,9 +190,9 @@ export default function SniperConfig({
       </div>
        
        {/* FIRST SET */}
-      <div className="mb-4 flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+      <div className="mb-4 flex items-center justify-between bg-shift-accent border border-shift-border rounded-xl p-4">
           <div className="w-1/2">
-            <label className="flex items-center gap-2 text-sm font-bold text-shift-textMain cursor-pointer">
+            <label className="flex items-center gap-2 text-sm font-bold  cursor-pointer">
               <input
                 type="checkbox"
                 checked={useAllWallets}
@@ -203,7 +203,7 @@ export default function SniperConfig({
               Snipe with all saved wallets
             </label>
 
-            <p className="text-xs text-shift-textMuted mt-1 ml-6">
+            <p className="text-xs text-shift-Muted mt-1 ml-6">
               {useAllWallets
                 ? `Will sign and fire from all ${savedWalletCount} saved wallet(s), each independently.`
                 : 'Uses only the wallet marked "Active Sniper Target".'}
@@ -212,7 +212,7 @@ export default function SniperConfig({
 
          {/* CONTRACT ADDRESS INPUT */}
         <div className="w-1/2">
-          <label className="block text-xs text-shift-textMuted mb-2 font-mono uppercase">Target Contract Address</label>
+          <label className="block text-xs text-shift-Muted mb-2 font-mono uppercase">Target Contract Address</label>
 
           <input
             type="text"
@@ -220,7 +220,7 @@ export default function SniperConfig({
             onChange={(e) => handleContractChange(e.target.value)}
             disabled={isArmed}
             placeholder="0x..."
-            className=" bg-slate-900 border w-full border-slate-700 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-shift-lime"
+            className=" bg-shift-input border border-shift-border w-full  rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-shift-lime"
           />
 
           {fetchingInfo && (
@@ -232,13 +232,13 @@ export default function SniperConfig({
 
       </div>
 
-      <div className="mb-4 bg-slate-900/60 border border-slate-800 rounded-xl p-4">
-        <label className="block text-xs text-shift-textMuted mb-2 font-mono uppercase tracking-widest">Mint Phase</label>
+      <div className="mb-4 bg-shift-accent border border-shift-border rounded-xl p-4">
+        <label className="block text-xs text-shift-Muted mb-2 font-mono uppercase tracking-widest">Mint Phase</label>
         <select
           value={phaseType}
           onChange={(event) => setPhaseType(event.target.value as typeof phaseType)}
           disabled={isArmed}
-          className="w-full bg-slate-950 border cursor-pointer border-slate-700 rounded-md p-3 font-mono text-sm text-white"
+          className="w-full bg-shift-input border border-shift-border cursor-pointer rounded-md p-3 font-mono text-sm "
         >
           <option value="PUBLIC">Public</option>
           <option value="GUARANTEED_WL">Guaranteed WL</option>
@@ -252,7 +252,7 @@ export default function SniperConfig({
               onChange={(event) => setMerkleRoot(event.target.value)}
               disabled={isArmed}
               placeholder="Merkle root (0x...)"
-              className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 font-mono text-xs text-white"
+              className="w-full bg-shift-input border border-shift-border rounded-md p-3 font-mono text-xs"
             />
             <textarea
               value={merkleProofsJson}
@@ -260,7 +260,7 @@ export default function SniperConfig({
               disabled={isArmed}
               rows={3}
               placeholder={'{"0xWalletAddress":["0xProofNode"]}'}
-              className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 font-mono text-xs text-white"
+              className="w-full bg-shift-input border border-shift-border rounded-md p-3 font-mono text-xs"
             />
             <textarea
               value={mintCalldata}
@@ -268,7 +268,7 @@ export default function SniperConfig({
               disabled={isArmed}
               rows={2}
               placeholder="Encoded WL mint calldata (0x...). Required for this first WL build."
-              className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 font-mono text-xs text-white"
+              className="w-full bg-shift-input border border-shift-border rounded-md p-3 font-mono text-xs"
             />
             <p className="text-[11px] text-slate-500">Address-leaf Merkle proofs are checked locally. Signature-based phases need their collection-specific payload.</p>
             {burnerAddresses.length > 0 && (
@@ -287,10 +287,10 @@ export default function SniperConfig({
 
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="flex items-center justify-between text-xs text-shift-textMuted mb-2 font-mono tracking-widest uppercase">
+            <label className="flex items-center justify-between text-xs text-shift-Muted mb-2 font-mono tracking-widest uppercase">
               <span>Price (ETH)</span>
 
-              <Lock size={12} className="text-slate-500" />
+              <Lock size={12} className="text-shift-Muted" />
             </label>
 
             <input
@@ -298,12 +298,12 @@ export default function SniperConfig({
               value={mintPrice}
               readOnly
               disabled
-              className="w-full bg-slate-950/80 border border-slate-800 rounded-lg p-3 font-mono text-sm text-shift-cyan"
+              className="w-full bg-shift-input border border-shift-border rounded-lg p-3 font-mono text-sm "
             />
           </div>
 
           <div>
-            <label className="block tracking-widest text-xs text-shift-textMuted mb-2 font-mono uppercase">Quantity</label>
+            <label className="block tracking-widest text-xs text-shift-Muted mb-2 font-mono uppercase">Quantity</label>
 
             <input
               type="number"
@@ -311,12 +311,12 @@ export default function SniperConfig({
               value={maxQuantity || ""}
               onChange={(e) => setMaxQuantity(Number(e.target.value))}
               disabled={isArmed}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-shift-lime"
+              className="w-full bg-shift-input border border-shift-border rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-shift-lime"
             />
           </div>
 
           <div>
-            <label className="flex items-center tracking-widest justify-between text-xs text-shift-textMuted mb-2 font-mono uppercase">
+            <label className="flex items-center tracking-widest justify-between text-xs text-shift-Muted mb-2 font-mono uppercase">
               <span>Function</span>
 
               <Lock size={12} className="text-slate-500" />
@@ -327,40 +327,40 @@ export default function SniperConfig({
               value={functionName}
               readOnly
               disabled
-              className="w-full bg-slate-950/80 border border-slate-800 rounded-lg p-3 font-mono text-sm text-shift-lime"
+              className="w-full bg-shift-input border border-shift-border rounded-lg p-3 font-mono text-sm"
             />
           </div>
         </div>
       </div>
 
-      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 mb-6">
+      <div className="bg-shift-accent border border-slate-800 rounded-xl p-4 mb-6">
         <div className="flex items-center gap-2 text-xs font-bold text-amber-400 mb-2 tracking-widest">
-          <Flame size={16} />
+          <Flame className="text-shift-icon" size={16} />
           WAR MODE: EIP-1559 GAS CONTROLS
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-[11px] text-shift-textMuted mb-1 font-mono">Max Fee (Gwei)</label>
+            <label className="block text-[11px] text-shift-Muted mb-1 font-mono">Max Fee (Gwei)</label>
 
             <input
               type="text"
               value={maxFeeGwei}
               onChange={(e) => setMaxFeeGwei(e.target.value)}
               placeholder="e.g. 25"
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 font-mono text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full bg-shift-input border border-shift-border rounded-lg p-2.5 font-mono text-xs text-white focus:border-amber-400 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-[11px] text-shift-textMuted mb-1 font-mono">Priority Tip (Gwei)</label>
+            <label className="block text-[11px] text-shift-Muted mb-1 font-mono">Priority Tip (Gwei)</label>
 
             <input
               type="text"
               value={priorityTipGwei}
               onChange={(e) => setPriorityTipGwei(e.target.value)}
               placeholder="e.g. 5"
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 font-mono text-xs text-amber-400 focus:border-amber-400 focus:outline-none"
+              className="w-full bg-shift-input border border-shift-border rounded-lg p-2.5 font-mono text-xs text-amber-400 focus:border-amber-400 focus:outline-none"
             />
           </div>
         </div>
@@ -370,7 +370,7 @@ export default function SniperConfig({
         type="button"
         onClick={onToggleArm}
         disabled={loading}
-        className={`w-full text-slate-900 text-lg cursor-pointer py-4 rounded-lg tracking-wider flex items-center justify-center gap-3 transition-all border border-cyan-500/40 bg-cyan-400 hover:bg-cyan-600  ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
+        className={`w-full text-slate-900 text-lg cursor-pointer py-4 rounded-lg tracking-wider flex items-center justify-center gap-3 transition-all border border-cyan-500/40 bg-shift-cyan hover:bg-cyan-600  ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
       >
         <Play fill="currentColor" size={24} />
 

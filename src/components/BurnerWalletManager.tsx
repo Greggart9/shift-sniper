@@ -376,13 +376,13 @@ export default function BurnerWalletManager() {
     <div className="relative">
       <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-6">
 
-        <aside className="rounded-2xl border border-slate-700 bg-slate-950/70 p-5 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
+        <aside className="rounded-2xl border border-shift-border bg-shift-surface p-5">
 
           <div className="mb-5 flex items-center gap-3">
             <div className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-700 bg-slate-900 text-shift-lime">
-              <Wallet size={15} />
+              <Wallet className="text-shift-icon" size={15} />
             </div>
-            <div className="text-[11px] font-bold tracking-[0.18em] text-shift-textMuted">WALLET UTILITIES</div>
+            <div className="text-[11px] font-bold tracking-[0.18em] text-shift-Muted">WALLET UTILITIES</div>
           </div>
 
           <div className="space-y-3">
@@ -392,16 +392,16 @@ export default function BurnerWalletManager() {
                 value={fundAmount}
                 onChange={(e) => setFundAmount(e.target.value)}
                 placeholder="0.02"
-                className="w-28 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-[13px] text-white outline-none ring-0 placeholder:text-slate-500 focus:border-shift-lime"
+                className="w-28 rounded-lg border border-shift-border bg-shift-input px-3 py-2 font-mono text-[13px]  outline-none ring-0 placeholder:text-slate-300 focus:border-shift-lime"
               />
-              <span className="text-[12px] text-shift-textMuted">ETH each</span>
+              <span className="text-[12px] text-shift-Muted">ETH each</span>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={handleFundAll}
                 disabled={isFunding || !connectedAddress}
-                className="rounded-lg bg-shift-lime px-3 py-2 text-sm font-bold text-shift-navy transition hover:bg-shift-lime/90 disabled:opacity-50"
+                className="rounded-lg bg-shift-cyan px-3 py-2 text-sm font-bold text-shift-bg transition hover:bg-shift-btn/50 disabled:opacity-50"
               >
                 <span className="inline-flex items-center gap-2">
                   <ArrowDownToLine size={14} />
@@ -412,7 +412,7 @@ export default function BurnerWalletManager() {
               <button
                 onClick={handleWithdrawAll}
                 disabled={isWithdrawing || !connectedAddress}
-                className="rounded-lg border border-cyan-500/40 bg-slate-900 px-3 py-2 text-sm font-bold text-cyan-400 transition hover:bg-slate-800 disabled:opacity-50"
+                className="rounded-lg border border-shift-border bg-shift-bg px-3 py-2 text-sm font-bold text-cyan-400 transition hover:bg-slate-800 disabled:opacity-50"
               >
                 <span className="inline-flex items-center gap-2">
                   <ArrowUpFromLine size={14} />
@@ -427,7 +427,7 @@ export default function BurnerWalletManager() {
                 value={recipientAddress}
                 onChange={(event) => setRecipientAddress(event.target.value)}
                 placeholder="0x recipient address"
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-[12px] text-white outline-none placeholder:text-slate-500 focus:border-cyan-500"
+                className="w-full rounded-lg border border-shift-border bg-shift-input px-3 py-2 font-mono text-[12px] text-white outline-none placeholder:text-slate-300 focus:border-cyan-500"
                 aria-label="Recipient wallet address"
               />
 
@@ -435,7 +435,7 @@ export default function BurnerWalletManager() {
                 <button
                   onClick={() => void handleSendAllToAddress()}
                   disabled={isWithdrawing || wallets.length === 0}
-                  className="rounded-lg border border-cyan-500/40 bg-slate-900 px-3 py-2 text-[12px] font-bold text-cyan-400 transition hover:bg-slate-800 disabled:opacity-50"
+                  className="rounded-lg border border-shift-border bg-shift-bg px-3 py-2 text-[12px] font-bold text-cyan-400 transition hover:bg-slate-800 disabled:opacity-50"
                 >
                   Send All to Address
                 </button>
@@ -443,7 +443,7 @@ export default function BurnerWalletManager() {
                 <button
                   onClick={() => void handleSendActiveToAddress()}
                   disabled={isWithdrawing || wallets.length === 0}
-                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-[12px] font-bold text-shift-lime transition hover:bg-slate-800 disabled:opacity-50"
+                  className="rounded-lg border border-shift-border bg-shift-cyan px-3 py-2 text-[12px] font-bold text-shift-bg transition hover:bg-shift-btn/50 disabled:opacity-50"
                 >
                   Send Active
                 </button>
@@ -451,20 +451,20 @@ export default function BurnerWalletManager() {
             </div>
 
             <div className="space-y-3 pt-2">
-              <div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.18em] text-shift-textMuted">SEND ALL NFTs (AUTO-DISCOVER)</div>
+              <div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.18em] text-shift-Muted">SEND ALL NFTs (AUTO-DISCOVER)</div>
 
               <div className="grid grid-cols-[1fr_160px] gap-3">
                 <select
                   value={nftScope}
                   onChange={(event) => setNftScope(event.target.value as "ACTIVE" | "ALL")}
-                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-[12px] text-white outline-none focus:border-cyan-500"
+                  className="rounded-lg border border-shift-border bg-shift-input px-3 py-2 text-[12px] text-white outline-none focus:border-cyan-500"
                   aria-label="NFT source wallets"
                 >
                   <option value="ACTIVE">Active burner</option>
                   <option value="ALL">All burners</option>
                 </select>
 
-                <div className="flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-[12px] text-shift-textMuted">
+                <div className="flex items-center justify-center rounded-lg border border-shift-border bg-shift-input px-3 py-2 text-[12px] text-shift-Muted">
                   ERC-721 & ERC-721-C
                 </div>
               </div>
@@ -472,7 +472,7 @@ export default function BurnerWalletManager() {
               <button
                 onClick={() => void handleSendNfts()}
                 disabled={isWithdrawing || wallets.length === 0}
-                className="w-full rounded-lg bg-cyan-400 px-3 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-300 disabled:opacity-50"
+                className="w-full rounded-lg bg-shift-cyan px-3 py-2 text-sm font-bold text-slate-950 transition hover:bg-shift-cyan/50 disabled:opacity-50"
               >
                 <span className="inline-flex items-center gap-2">
                   <ImageUp size={15} />
@@ -493,13 +493,13 @@ export default function BurnerWalletManager() {
           </div>
         </aside>
 
-        <section className="rounded-2xl border border-slate-700 bg-slate-950/70 p-5 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
+        <section className="rounded-2xl border border-shift-border bg-shift-surface p-5">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-700 bg-slate-900 text-shift-lime">
-                <Wallet size={15} />
+              <div className="flex h-7 w-7 items-center justify-center rounded-md border border-shift-border text-shift-lime">
+                <Wallet className="text-shift-icon"  size={15} />
               </div>
-              <div className="text-[11px] font-bold tracking-[0.18em] text-shift-textMuted">BURNER WALLETS ({wallets.length}/{MAX_WALLETS})</div>
+              <div className="text-[11px] font-bold tracking-[0.18em] text-shift-Muted">BURNER WALLETS ({wallets.length}/{MAX_WALLETS})</div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -507,17 +507,17 @@ export default function BurnerWalletManager() {
                 <button
                   onClick={fetchAllBalances}
                   disabled={isFetching}
-                  className="flex h-9 w-9 items-center cursor-pointer justify-center rounded-lg border border-slate-700 bg-slate-900 text-shift-textMuted transition hover:border-slate-600 hover:text-white disabled:opacity-50"
+                  className="flex h-9 w-9 items-center cursor-pointer justify-center rounded-lg border border-shift-border bg-shift-bg text-shift-Muted transition hover:border-slate-600 hover:text-white disabled:opacity-50"
                   title="Refresh Balances"
-                >
-                  <RefreshCw size={14} className={isFetching ? "animate-spin text-shift-lime" : ""} />
+                > 
+                  <RefreshCw size={14} className={isFetching ? "animate-spin text-shift-btn" : ""} />
                 </button>
               )}
 
               <button
                 onClick={() => setShowImportModal(true)}
                 disabled={wallets.length >= MAX_WALLETS}
-                className="flex items-center gap-2 rounded-sm cursor-pointer border border-slate-700 bg-slate-900 px-3 py-2 text-[11px] font-bold text-shift-cyan transition hover:border-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center gap-2 rounded-sm cursor-pointer border border-shift-border bg-shift-bg px-3 py-2 text-[11px] font-bold text-shift-cyan transition hover:border-shift-bg/50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <KeyRound size={15} />
                 IMPORT
@@ -529,7 +529,7 @@ export default function BurnerWalletManager() {
                 className={`rounded-sm px-3 py-2 text-[11px] cursor-pointer  font-bold transition ${
                   wallets.length >= MAX_WALLETS
                     ? "cursor-not-allowed border border-slate-700 bg-slate-800 text-slate-500"
-                    : "bg-shift-lime text-shift-navy hover:bg-shift-lime/90"
+                    : "bg-shift-btn text-shift-navy hover:bg-shift-btn/50"
                 }`}
               >
                 {wallets.length >= MAX_WALLETS ? "MAX REACHED" : "NEW BURNER"}
@@ -539,7 +539,7 @@ export default function BurnerWalletManager() {
 
           <div className="space-y-4">
             {wallets.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 px-6 py-12 text-center text-shift-textMuted">
+              <div className="rounded-xl border border-dashed border-shift-border bg-shift-accent px-6 py-12 text-center text-shift-Muted">
                 No burner wallets created yet.
               </div>
             ) : (
@@ -553,7 +553,7 @@ export default function BurnerWalletManager() {
                     key={w.id}
                     className={`rounded-xl border p-4 ${
                       isActive
-                        ? "border-shift-lime/50 bg-slate-900/90 shadow-[0_0_18px_rgba(197,224,0,0.08)]"
+                        ? "border-shift-border bg-slate-900/90 shadow-[0_0_18px_rgba(197,224,0,0.08)]"
                         : "border-slate-700 bg-slate-900/30"
                     }`}
                   >
@@ -593,7 +593,7 @@ export default function BurnerWalletManager() {
                     </div>
 
                     <div className="mb-3 flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950/80 p-2.5">
-                      <span className="text-[12px] font-medium text-shift-textMuted">Address</span>
+                      <span className="text-[12px] font-medium text-shift-Muted">Address</span>
                       <span className="flex-1 truncate font-mono text-[12px] text-white">{w.address}</span>
                       <button
                         onClick={() => copyToClipboard(w.address, `addr-${w.id}`)}
@@ -604,7 +604,7 @@ export default function BurnerWalletManager() {
                     </div>
 
                     <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950/80 p-2.5">
-                      <span className="text-[12px] font-medium text-shift-textMuted">Private Key</span>
+                      <span className="text-[12px] font-medium text-shift-Muted">Private Key</span>
                       <input
                         readOnly
                         type={isKeyVisible ? "text" : "password"}
@@ -632,7 +632,7 @@ export default function BurnerWalletManager() {
         </section>
       </div>
 
-      <div className="mt-6 flex items-center justify-between border-t border-slate-800 pt-4 text-[12px] text-shift-textMuted">
+      <div className="mt-6 flex items-center justify-between border-t border-slate-800 pt-4 text-[12px] text-shift-Muted">
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center justify-center h-4 w-4 rounded-full border border-slate-600">
             <Shield size={10} />
@@ -640,7 +640,7 @@ export default function BurnerWalletManager() {
           <span>Your keys are encrypted and never stored.</span>
         </div>
 
-        <div className="flex items-center gap-3 text-shift-textMuted">
+        <div className="flex items-center gap-3 text-shift-Muted">
           <span className="inline-flex items-center gap-1"><Shield size={12} /> Secure</span>
           <span>·</span>
           <span>Private</span>
@@ -662,11 +662,11 @@ export default function BurnerWalletManager() {
               </button>
             </div>
 
-            <p className="mb-4 text-xs text-shift-textMuted">Paste an existing private key to load it into your local browser vault.</p>
+            <p className="mb-4 text-xs text-shift-Muted">Paste an existing private key to load it into your local browser vault.</p>
 
             <form onSubmit={handleImportSubmit} className="space-y-4">
               <div>
-                <label className="mb-1 block text-[11px] font-bold tracking-[0.14em] text-shift-textMuted">PRIVATE KEY (0X...)</label>
+                <label className="mb-1 block text-[11px] font-bold tracking-[0.14em] text-shift-Muted">PRIVATE KEY (0X...)</label>
                 <input
                   type="password"
                   value={importKeyInput}

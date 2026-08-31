@@ -27,15 +27,15 @@ export default function ActiveSnipesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B1022] text-shift-textMain flex overflow-hidden">
+    <div className="min-h-screen text-shift-text flex overflow-hidden">
       <Sidebar />
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        <div className="border-b border-slate-800 px-8 py-4 bg-shift-navy/50 backdrop-blur-sm">
+        <div className="border-b bg-shift-bg border-shift-border px-8 py-4 backdrop-blur-sm">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h1 className="text-xl leading-none font-bold tracking-[0.04em] text-white">Active Snipes</h1>
-              <p className="text-sm text-shift-textMuted mt-1">Monitor and manage active sniper tasks</p>
+              <h1 className="text-xl leading-none font-bold tracking-[0.04em] ">Active Snipes</h1>
+              <p className="text-sm text-shift-Muted mt-1">Monitor and manage active sniper tasks</p>
             </div>
 
             <div className="flex items-center gap-3">
