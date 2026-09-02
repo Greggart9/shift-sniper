@@ -8,15 +8,21 @@ import {
   retrySniper,
 } from "@/server/sniper";
 import { DEFAULT_CHAIN_ID, getChainConfig } from "@/lib/chains";
+import { getAuthenticatedWallet } from "@/server/auth";
+import { protectApi } from "@/lib/arcjet";
 
 export async function GET(request: Request) {
   try {
+    const ownerAddress = await getAuthenticatedWallet();
+    if (!ownerAddress) return NextResponse.json({ success: false, error: "Wallet authentication required." }, { status: 401 });
+    const blocked = await protectApi(request, "api", ownerAddress);
+    if (blocked) return blocked;
     const { searchParams } = new URL(request.url);
     const taskId = searchParams.get("taskId");
 
     // If a taskId is supplied, return the status for that specific task.
     if (taskId) {
-      const status = getSniperStatus(taskId);
+      const status = getSniperStatus(taskId, ownerAddress);
 
       if (!status) {
         return NextResponse.json(
@@ -35,8 +41,8 @@ export async function GET(request: Request) {
     }
 
     // Otherwise return all active tasks and their current statuses.
-    const tasks = getActiveTasks();
-    const statuses = getAllSniperStatuses();
+    const tasks = getActiveTasks(ownerAddress);
+    const statuses = getAllSniperStatuses(ownerAddress);
 
     return NextResponse.json({
       success: true,
@@ -58,6 +64,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const ownerAddress = await getAuthenticatedWallet();
+    if (!ownerAddress) return NextResponse.json({ success: false, error: "Wallet authentication required." }, { status: 401 });
+    const blocked = await protectApi(request, "sniper-write", ownerAddress);
+    if (blocked) return blocked;
     const body = await request.json();
 
     const { targetContract, chainId, mintPriceEth, maxQuantity, functionName, mode, feeTiersBatch, phaseType } = body;
@@ -122,6 +132,7 @@ export async function POST(request: Request) {
       functionName ?? "mint",
       mode,
       batches,
+      ownerAddress,
       selectedChainId,
       phaseType === "GUARANTEED_WL" || phaseType === "FCFS_WL" ? phaseType : "PUBLIC",
     );
@@ -152,6 +163,10 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const ownerAddress = await getAuthenticatedWallet();
+    if (!ownerAddress) return NextResponse.json({ success: false, error: "Wallet authentication required." }, { status: 401 });
+    const blocked = await protectApi(request, "sniper-write", ownerAddress);
+    if (blocked) return blocked;
     const { searchParams } = new URL(request.url);
 
     const taskId = searchParams.get("taskId");
@@ -166,7 +181,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const success = disarmSniper(taskId);
+    const success = disarmSniper(taskId, ownerAddress);
 
     if (!success) {
       return NextResponse.json(
@@ -198,13 +213,17 @@ export async function DELETE(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    const ownerAddress = await getAuthenticatedWallet();
+    if (!ownerAddress) return NextResponse.json({ success: false, error: "Wallet authentication required." }, { status: 401 });
+    const blocked = await protectApi(request, "sniper-write", ownerAddress);
+    if (blocked) return blocked;
     const { taskId } = (await request.json()) as { taskId?: string };
 
     if (!taskId) {
       return NextResponse.json({ success: false, error: "Missing taskId." }, { status: 400 });
     }
 
-    const retryTaskId = retrySniper(taskId);
+    const retryTaskId = retrySniper(taskId, ownerAddress);
 
     if (!retryTaskId) {
       return NextResponse.json(

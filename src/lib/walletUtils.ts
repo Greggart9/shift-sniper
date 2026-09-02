@@ -10,7 +10,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { getPublicClient } from "@/lib/viem";
 import { DEFAULT_CHAIN_ID, getChainConfig } from "@/lib/chains";
-import type { BurnerAccount } from "@/components/BurnerWalletManager";
+import type { BurnerAccount } from "@/lib/burnerVault";
 
 const TRANSFER_GAS = 21_000n;
 

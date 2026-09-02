@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { protectApi } from "@/lib/arcjet";
 import { parseTransaction, recoverTransactionAddress, type Hex } from "viem";
 import { getChainConfig } from "@/lib/chains";
 import { getPublicClient } from "@/lib/viem";
@@ -9,6 +10,8 @@ interface SimulationRequest {
 }
 
 export async function POST(request: Request) {
+  const blocked = await protectApi(request, "expensive-read");
+  if (blocked) return blocked;
   try {
     const body = (await request.json()) as SimulationRequest;
     const serializedTransaction = body.serializedTransaction;

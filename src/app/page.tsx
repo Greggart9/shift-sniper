@@ -13,6 +13,8 @@ import ActiveSnipesList from "@/components/ActiveSnipesList";
 import LiveTerminal from "@/components/LiveTerminal";
 import { signBurnerSnipeFeeTiers } from "@/lib/signBurnerTx";
 import { DEFAULT_CHAIN_ID, getChainConfig, SUPPORTED_CHAINS } from "@/lib/chains";
+import { WALLET_STORAGE_KEYS, walletStorageKey } from "@/lib/walletStorage";
+import { getBurnerWallets } from "@/lib/burnerVault";
 
 interface SniperResult {
   id: string;
@@ -101,9 +103,6 @@ interface SavedSniperConfig {
 
   mode: "BURNER";
 
-  maxFeeGwei: string;
-  priorityTipGwei: string;
-
   useAllWallets: boolean;
 
   collectionName?: string;
@@ -116,14 +115,10 @@ interface SavedSniperConfig {
   mintCalldata: string;
 }
 
-const STORAGE_KEY = "shift_sniper_config";
-
-const TASK_STORAGE_KEY = "shift_sniper_task_ids";
-
 const POLL_INTERVAL = 1500;
 
 export default function Home() {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const connectedChainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
   const mode = "BURNER" as const;
@@ -159,16 +154,13 @@ export default function Home() {
 
   const [logs, setLogs] = useState<string[]>([]);
 
-  const [maxFeeGwei, setMaxFeeGwei] = useState("25");
-
-  const [priorityTipGwei, setPriorityTipGwei] = useState("5");
-
   const [taskIds, setTaskIds] = useState<string[]>([]);
 
   const [selectedChainId, setSelectedChainId] = useState<number>(DEFAULT_CHAIN_ID);
   const selectedChain = getChainConfig(selectedChainId);
 
   const processedEvents = useRef<Set<string>>(new Set());
+  const taskStorageAddress = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (SUPPORTED_CHAINS.some((config) => config.id === connectedChainId)) {
@@ -206,7 +198,7 @@ export default function Home() {
     }
 
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = address && localStorage.getItem(walletStorageKey(WALLET_STORAGE_KEYS.config, address));
 
       if (saved) {
         const config = JSON.parse(saved) as SavedSniperConfig;
@@ -219,10 +211,6 @@ export default function Home() {
 
         setFunctionName(config.functionName ?? "");
 
-
-        setMaxFeeGwei(config.maxFeeGwei ?? "");
-
-        setPriorityTipGwei(config.priorityTipGwei ?? "");
 
         setUseAllWallets(config.useAllWallets ?? false);
 
@@ -244,7 +232,7 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to restore sniper configuration:", error);
     }
-  }, []);
+  }, [address]);
 
   // Save contract information and configuration when leaving the sniper page.
 
@@ -261,9 +249,6 @@ export default function Home() {
 
       mode,
 
-      maxFeeGwei,
-      priorityTipGwei,
-
       useAllWallets,
 
       collectionName,
@@ -276,15 +261,13 @@ export default function Home() {
       mintCalldata,
     };
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    if (address) localStorage.setItem(walletStorageKey(WALLET_STORAGE_KEYS.config, address), JSON.stringify(config));
   }, [
     targetContract,
     mintPrice,
     maxQuantity,
     functionName,
     mode,
-    maxFeeGwei,
-    priorityTipGwei,
     useAllWallets,
     collectionName,
     collectionSymbol,
@@ -293,6 +276,7 @@ export default function Home() {
     merkleRoot,
     merkleProofsJson,
     mintCalldata,
+    address,
   ]);
 
   // Restore active task IDs
@@ -302,22 +286,25 @@ export default function Home() {
       return;
     }
 
-    try {
-      const saved = localStorage.getItem(TASK_STORAGE_KEY);
+    taskStorageAddress.current = undefined;
+    const loadTimer = window.setTimeout(() => {
+      try {
+        const saved = address && localStorage.getItem(walletStorageKey(WALLET_STORAGE_KEYS.taskIds, address));
 
-      if (!saved) {
-        return;
+        if (saved) {
+          const ids = JSON.parse(saved);
+
+          if (Array.isArray(ids)) {
+            setTaskIds(ids);
+          }
+        }
+      } catch {
+        // Ignore malformed local storage.
       }
-
-      const ids = JSON.parse(saved);
-
-      if (Array.isArray(ids)) {
-        setTaskIds(ids);
-      }
-    } catch {
-      // Ignore malformed local storage.
-    }
-  }, []);
+      taskStorageAddress.current = address?.toLowerCase();
+    }, 0);
+    return () => window.clearTimeout(loadTimer);
+  }, [address]);
 
   // Save task IDs
 
@@ -326,8 +313,10 @@ export default function Home() {
       return;
     }
 
-    localStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(taskIds));
-  }, [taskIds]);
+    if (address && taskStorageAddress.current === address.toLowerCase()) {
+      localStorage.setItem(walletStorageKey(WALLET_STORAGE_KEYS.taskIds, address), JSON.stringify(taskIds));
+    }
+  }, [taskIds, address]);
 
   // Count saved wallets
 
@@ -337,15 +326,11 @@ export default function Home() {
     }
 
     try {
-      const savedWalletsRaw = localStorage.getItem("shift_burner_wallets");
-
-      const wallets = savedWalletsRaw ? JSON.parse(savedWalletsRaw) : [];
-
-      setSavedWalletCount(Array.isArray(wallets) ? wallets.length : 0);
+      setSavedWalletCount(address ? getBurnerWallets(address).length : 0);
     } catch {
       setSavedWalletCount(0);
     }
-  }, []);
+  }, [address]);
 
   // Initialize terminal
 
@@ -587,9 +572,6 @@ export default function Home() {
 
         merkleProofsJson,
 
-        maxFeeGwei,
-
-        priorityTipGwei,
       };
 
       const transactionsForSimulation: string[] = [];
@@ -597,27 +579,13 @@ export default function Home() {
       // Burner mode
 
       if (mode === "BURNER") {
-        const savedWalletsRaw = localStorage.getItem("shift_burner_wallets");
-
-        const activeId = localStorage.getItem("shift_active_burner_id");
-
-        if (!savedWalletsRaw) {
-          addLog("❌ ERROR: No burner wallets saved!");
-
-          toast.error("No burner wallets saved.");
-
-          return;
-        }
-
-        const wallets: {
-          id: string;
-          privateKey: `0x${string}`;
-        }[] = JSON.parse(savedWalletsRaw);
+        const activeId = localStorage.getItem(walletStorageKey(WALLET_STORAGE_KEYS.activeBurner, address));
+        const wallets = address ? getBurnerWallets(address) : [];
 
         if (wallets.length === 0) {
-          addLog("❌ ERROR: No burner wallets saved!");
+          addLog("❌ ERROR: No unlocked burner wallets available!");
 
-          toast.error("No burner wallets saved.");
+          toast.error("Unlock or create a burner wallet before arming.");
 
           return;
         }
@@ -648,10 +616,6 @@ export default function Home() {
 
                 functionName,
 
-                maxFeeGwei,
-
-                priorityTipGwei,
-
                 mintCalldata: phaseType === "PUBLIC" ? undefined : (mintCalldata as `0x${string}`),
               }),
             ),
@@ -661,7 +625,10 @@ export default function Home() {
           transactionsForSimulation.push(...signedResults.map((result) => result.feeTiers[0]));
 
           addLog(
-            `✅ Signed ${signedResults.length} wallet(s), ${signedResults[0]?.feeTiers.length ?? 0} fee tier(s) each.`,
+            `✅ Automatic gas: mint ${signedResults[0]?.mintPriceEth ?? mintPrice} ETH + estimated gas ${signedResults[0]?.estimatedGasEth ?? "unknown"} ETH = ${signedResults[0]?.estimatedTotalEth ?? "unknown"} ETH; balance ${signedResults[0]?.availableBalanceEth ?? "unknown"} ETH.`,
+          );
+          addLog(
+            `🛡️ Signed ${signedResults.length} wallet(s) with ${signedResults[0]?.feeTiers.length ?? 0} bounded fee tier(s) each.`,
           );
         } catch (signError: any) {
           addLog(`❌ Local signing failed: ${signError?.message ?? "Unknown error"}`);
@@ -811,10 +778,6 @@ export default function Home() {
           setMaxQuantity={setMaxQuantity}
           functionName={functionName}
           setFunctionName={setFunctionName}
-          maxFeeGwei={maxFeeGwei}
-          setMaxFeeGwei={setMaxFeeGwei}
-          priorityTipGwei={priorityTipGwei}
-          setPriorityTipGwei={setPriorityTipGwei}
           useAllWallets={useAllWallets}
           setUseAllWallets={setUseAllWallets}
           savedWalletCount={savedWalletCount}

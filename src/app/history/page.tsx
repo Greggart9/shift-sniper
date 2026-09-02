@@ -39,6 +39,7 @@ export default function HistoryPage() {
   );
 
   const fetchHistory = useCallback(async () => {
+    setLogs([]);
     setLoading(true);
     try {
       const response = await fetch("/api/history", { cache: "no-store" });
@@ -56,11 +57,22 @@ export default function HistoryPage() {
   }, []);
 
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !address) {
+      const clearTimer = window.setTimeout(() => setLogs([]), 0);
+      return () => window.clearTimeout(clearTimer);
+    }
 
     const timer = window.setTimeout(() => void fetchHistory(), 0);
     return () => window.clearTimeout(timer);
-  }, [fetchHistory, isConnected]);
+  }, [fetchHistory, isConnected, address]);
+
+  useEffect(() => {
+    const handleAuthenticated = (event: Event) => {
+      if ((event as CustomEvent<string>).detail === address?.toLowerCase()) void fetchHistory();
+    };
+    window.addEventListener("wallet-authenticated", handleAuthenticated);
+    return () => window.removeEventListener("wallet-authenticated", handleAuthenticated);
+  }, [address, fetchHistory]);
 
   if (!isConnected) return <LandingPage />;
 

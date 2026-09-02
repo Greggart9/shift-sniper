@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { protectApi } from "@/lib/arcjet";
 import { createPublicClient, http } from "viem";
 import { ROBINHOOD_FALLBACK_RPC_URL, ROBINHOOD_RPC_URL, robinhoodChain } from "@/lib/chains";
 
@@ -81,7 +82,9 @@ async function checkBroadcastRpc(url: string, label: string): Promise<CheckResul
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const blocked = await protectApi(request, "api");
+  if (blocked) return blocked;
   const checks: CheckResult[] = [];
 
   checks.push(await checkReadRpc(RPC_URL, "Primary RPC (reads)"));

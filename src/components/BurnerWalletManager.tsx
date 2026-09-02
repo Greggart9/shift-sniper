@@ -8,6 +8,20 @@ import { DEFAULT_CHAIN_ID, getChainConfig, SUPPORTED_CHAINS } from "@/lib/chains
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { formatEther, isAddress, isHex, parseEther } from "viem";
 import { publicClient } from "@/lib/viem";
+import { WALLET_STORAGE_KEYS, walletStorageKey } from "@/lib/walletStorage";
+import {
+  clearMemoryWallets,
+  decryptPrivateKey,
+  discardLegacyPlaintextWallets,
+  getBurnerWalletMetadata,
+  getEncryptedBurnerWallets,
+  persistWallets,
+  readLegacyPlaintextWallets,
+  removeStoredWallet,
+  setMemoryWallet,
+  setMemoryWallets,
+  type BurnerAccount,
+} from "@/lib/burnerVault";
 import {
   withdrawAllBurners,
   sendAllBurnersToRecipient,
@@ -38,15 +52,6 @@ import {
   Shield,
 } from "lucide-react";
 
-export interface BurnerAccount {
-  id: string;
-  label: string;
-  address: `0x${string}`;
-  privateKey: `0x${string}`;
-}
-
-const STORAGE_KEY = "shift_burner_wallets";
-const ACTIVE_KEY = "shift_active_burner_id";
 const MAX_WALLETS = 2;
 
 export default function BurnerWalletManager() {
@@ -78,25 +83,34 @@ export default function BurnerWalletManager() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importKeyInput, setImportKeyInput] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
+  const [passphrase, setPassphrase] = useState("");
+  const [passphraseConfirm, setPassphraseConfirm] = useState("");
+  const [passphraseError, setPassphraseError] = useState<string | null>(null);
+  const [showProtectModal, setShowProtectModal] = useState(false);
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [legacyWallets, setLegacyWallets] = useState<BurnerAccount[]>([]);
+  const [showLegacyModal, setShowLegacyModal] = useState(false);
 
-  // Load saved wallets on mount
+  // Browser storage contains only public metadata and encrypted envelopes.
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    const savedActive = localStorage.getItem(ACTIVE_KEY);
-
-    if (saved) {
-      try {
-        const parsed: BurnerAccount[] = JSON.parse(saved);
-        setWallets(parsed);
-        if (parsed.length > 0) {
-          const selected = savedActive && parsed.some((w) => w.id === savedActive) ? savedActive : parsed[0].id;
-          setActiveId(selected);
-        }
-      } catch (e) {
-        console.error("Failed to parse saved burner wallets:", e);
-      }
+    const activeKey = walletStorageKey(WALLET_STORAGE_KEYS.activeBurner, connectedAddress);
+    clearMemoryWallets(connectedAddress);
+    setWallets([]);
+    setActiveId(null);
+    if (!connectedAddress) return;
+    const savedActive = localStorage.getItem(activeKey);
+    const metadata = getBurnerWalletMetadata(connectedAddress);
+    const legacy = readLegacyPlaintextWallets(connectedAddress);
+    if (legacy.length > 0) {
+      setLegacyWallets(legacy);
+      setShowLegacyModal(true);
+      setMemoryWallets(connectedAddress, legacy);
+      setWallets(legacy);
+    } else if (metadata.length > 0) {
+      const selected = savedActive && metadata.some((wallet) => wallet.id === savedActive) ? savedActive : metadata[0].id;
+      setActiveId(selected);
     }
-  }, []);
+  }, [connectedAddress]);
 
   // Fetch balances for all wallets
   const fetchAllBalances = useCallback(async () => {
@@ -173,20 +187,20 @@ export default function BurnerWalletManager() {
     };
 
     const updated = [...wallets, newWallet];
+    setMemoryWallet(connectedAddress, newWallet);
     setWallets(updated);
 
     if (updated.length === 1) {
       setActiveId(newWallet.id);
-      localStorage.setItem(ACTIVE_KEY, newWallet.id);
+      localStorage.setItem(walletStorageKey(WALLET_STORAGE_KEYS.activeBurner, connectedAddress), newWallet.id);
     }
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   };
 
   // Set active wallet
   const handleSetActive = (id: string) => {
     setActiveId(id);
-    localStorage.setItem(ACTIVE_KEY, id);
+    if (connectedAddress) localStorage.setItem(walletStorageKey(WALLET_STORAGE_KEYS.activeBurner, connectedAddress), id);
   };
 
   // Delete specific burner wallet
@@ -199,16 +213,80 @@ export default function BurnerWalletManager() {
       return;
 
     const updated = wallets.filter((w) => w.id !== id);
+    removeStoredWallet(connectedAddress, id);
     setWallets(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
     if (activeId === id) {
       const nextActive = updated.length > 0 ? updated[0].id : null;
       setActiveId(nextActive);
-      if (nextActive) localStorage.setItem(ACTIVE_KEY, nextActive);
-      else localStorage.removeItem(ACTIVE_KEY);
+      if (nextActive && connectedAddress) localStorage.setItem(walletStorageKey(WALLET_STORAGE_KEYS.activeBurner, connectedAddress), nextActive);
+      else localStorage.removeItem(walletStorageKey(WALLET_STORAGE_KEYS.activeBurner, connectedAddress));
     }
     toast.info("Burner wallet removed.");
+  };
+
+  const closePassphraseModal = () => {
+    setShowProtectModal(false);
+    setShowLegacyModal(false);
+    setPassphrase("");
+    setPassphraseConfirm("");
+    setPassphraseError(null);
+  };
+
+  const handleProtectWallets = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!connectedAddress || wallets.length === 0) return;
+    if (passphrase.length < 12 || passphrase !== passphraseConfirm) {
+      setPassphraseError(passphrase.length < 12 ? "Use at least 12 characters." : "Passphrases do not match.");
+      return;
+    }
+    try {
+      await persistWallets(connectedAddress, wallets, passphrase);
+      closePassphraseModal();
+      toast.success("Burner wallets protected on this device.");
+    } catch {
+      setPassphraseError("Could not protect the wallets in this browser.");
+    }
+  };
+
+  const handleMigrateLegacy = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!connectedAddress || legacyWallets.length === 0) return;
+    if (passphrase.length < 12 || passphrase !== passphraseConfirm) {
+      setPassphraseError(passphrase.length < 12 ? "Use at least 12 characters." : "Passphrases do not match.");
+      return;
+    }
+    try {
+      await persistWallets(connectedAddress, legacyWallets, passphrase);
+      discardLegacyPlaintextWallets(connectedAddress);
+      closePassphraseModal();
+      setLegacyWallets([]);
+      toast.success("Legacy wallet data was encrypted and migrated.");
+    } catch {
+      setPassphraseError("Migration failed. The legacy entry was left unchanged.");
+    }
+  };
+
+  const handleUnlockWallets = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!connectedAddress) return;
+    try {
+      const encryptedWallets = getEncryptedBurnerWallets(connectedAddress);
+      const decrypted = await Promise.all(encryptedWallets.map(async (wallet) => ({
+        id: wallet.id,
+        label: wallet.label,
+        address: wallet.address,
+        privateKey: await decryptPrivateKey(wallet.encrypted, passphrase),
+      })));
+      setMemoryWallets(connectedAddress, decrypted);
+      setWallets(decrypted);
+      setActiveId((current) => current ?? decrypted[0]?.id ?? null);
+      setShowUnlockModal(false);
+      setPassphrase("");
+      toast.success("Burner wallets unlocked for this session.");
+    } catch {
+      setPassphraseError("Incorrect passphrase or corrupted wallet data.");
+    }
   };
 
   // Send fundAmount from the connected wallet to every burner wallet
@@ -534,13 +612,33 @@ export default function BurnerWalletManager() {
               >
                 {wallets.length >= MAX_WALLETS ? "MAX REACHED" : "NEW BURNER"}
               </button>
+              {wallets.length > 0 && (
+                <button
+                  onClick={() => setShowProtectModal(true)}
+                  className="flex items-center gap-2 rounded-sm border border-shift-lime/50 px-3 py-2 text-[11px] font-bold text-shift-lime"
+                >
+                  <Shield size={14} />
+                  REMEMBER
+                </button>
+              )}
+              {wallets.length === 0 && getEncryptedBurnerWallets(connectedAddress).length > 0 && (
+                <button
+                  onClick={() => { setPassphraseError(null); setShowUnlockModal(true); }}
+                  className="flex items-center gap-2 rounded-sm border border-shift-cyan/50 px-3 py-2 text-[11px] font-bold text-shift-cyan"
+                >
+                  <KeyRound size={14} />
+                  UNLOCK
+                </button>
+              )}
             </div>
           </div>
 
           <div className="space-y-4">
             {wallets.length === 0 ? (
               <div className="rounded-xl border border-dashed border-shift-border bg-shift-accent px-6 py-12 text-center text-shift-Muted">
-                No burner wallets created yet.
+                {getEncryptedBurnerWallets(connectedAddress).length > 0
+                  ? "Unlock your remembered burner wallets for this session."
+                  : "No burner wallets created yet. New wallets are memory-only by default."}
               </div>
             ) : (
               wallets.map((w) => {
@@ -637,7 +735,7 @@ export default function BurnerWalletManager() {
           <span className="inline-flex items-center justify-center h-4 w-4 rounded-full border border-slate-600">
             <Shield size={10} />
           </span>
-          <span>Your keys are encrypted and never stored.</span>
+          <span>Keys stay in memory unless you explicitly remember them.</span>
         </div>
 
         <div className="flex items-center gap-3 text-shift-Muted">
@@ -702,6 +800,43 @@ export default function BurnerWalletManager() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {(showProtectModal || showLegacyModal) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-shift-card p-6">
+            <h3 className="mb-3 flex items-center gap-2 text-base font-bold text-shift-cyan"><Shield size={18} />
+              {showLegacyModal ? "SECURE LEGACY WALLET DATA" : "REMEMBER BURNER WALLET"}
+            </h3>
+            <p className="mb-4 text-xs text-shift-Muted">
+              {showLegacyModal
+                ? "Plaintext wallet data from an older version was found. Enter a passphrase to encrypt it, or discard it."
+                : "This passphrase encrypts the private keys on this device. It cannot be recovered if forgotten."}
+            </p>
+            <form onSubmit={showLegacyModal ? handleMigrateLegacy : handleProtectWallets} className="space-y-3">
+              <input type="password" value={passphrase} onChange={(event) => setPassphrase(event.target.value)} placeholder="Passphrase (12+ characters)" className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-xs text-white outline-none focus:border-shift-cyan" autoComplete="new-password" />
+              <input type="password" value={passphraseConfirm} onChange={(event) => setPassphraseConfirm(event.target.value)} placeholder="Confirm passphrase" className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-xs text-white outline-none focus:border-shift-cyan" autoComplete="new-password" />
+              {passphraseError && <div className="rounded-lg border border-red-500/50 px-3 py-2 text-xs text-red-400">{passphraseError}</div>}
+              <div className="flex justify-end gap-2 pt-2">
+                {showLegacyModal && <button type="button" onClick={() => { discardLegacyPlaintextWallets(connectedAddress); clearMemoryWallets(connectedAddress); setWallets([]); setLegacyWallets([]); closePassphraseModal(); toast.info("Legacy wallet data discarded."); }} className="mr-auto rounded-lg border border-red-500/50 px-3 py-2 text-xs font-bold text-red-400">Discard</button>}
+                <button type="button" onClick={closePassphraseModal} className="rounded-lg bg-slate-800 px-4 py-2 text-xs font-bold text-slate-300">Cancel</button>
+                <button type="submit" className="rounded-lg bg-shift-cyan px-4 py-2 text-xs font-bold text-shift-navy">{showLegacyModal ? "Encrypt & Migrate" : "Protect Wallet"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showUnlockModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <form onSubmit={handleUnlockWallets} className="w-full max-w-md rounded-2xl border border-slate-700 bg-shift-card p-6">
+            <h3 className="mb-3 flex items-center gap-2 text-base font-bold text-shift-cyan"><KeyRound size={18} /> UNLOCK BURNER WALLET</h3>
+            <p className="mb-4 text-xs text-shift-Muted">The private keys will be decrypted into memory for this session only.</p>
+            <input type="password" value={passphrase} onChange={(event) => { setPassphrase(event.target.value); setPassphraseError(null); }} placeholder="Passphrase" className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-xs text-white outline-none focus:border-shift-cyan" autoComplete="current-password" autoFocus />
+            {passphraseError && <div className="mt-3 rounded-lg border border-red-500/50 px-3 py-2 text-xs text-red-400">{passphraseError}</div>}
+            <div className="mt-4 flex justify-end gap-2"><button type="button" onClick={() => { setShowUnlockModal(false); setPassphrase(""); setPassphraseError(null); }} className="rounded-lg bg-slate-800 px-4 py-2 text-xs font-bold text-slate-300">Cancel</button><button type="submit" className="rounded-lg bg-shift-cyan px-4 py-2 text-xs font-bold text-shift-navy">Unlock</button></div>
+          </form>
         </div>
       )}
     </div>

@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Play, Sparkles, Lock, Flame, CircleCheck, CircleX, CircleHelp, Target } from "lucide-react";
+import { Play, Sparkles, Lock, CircleCheck, CircleX, CircleHelp, Target } from "lucide-react";
 import { getWalletEligibility, type WalletEligibility } from "@/lib/eligibility";
+import { useAccount } from "wagmi";
+import { getBurnerWalletMetadata, getBurnerWallets } from "@/lib/burnerVault";
 
 interface SniperConfigProps {
   targetContract: string;
@@ -17,12 +19,6 @@ interface SniperConfigProps {
 
   functionName: string;
   setFunctionName: (val: string) => void;
-
-  maxFeeGwei: string;
-  setMaxFeeGwei: (val: string) => void;
-
-  priorityTipGwei: string;
-  setPriorityTipGwei: (val: string) => void;
 
   useAllWallets: boolean;
   setUseAllWallets: (val: boolean) => void;
@@ -63,12 +59,6 @@ export default function SniperConfig({
   functionName,
   setFunctionName,
 
-  maxFeeGwei,
-  setMaxFeeGwei,
-
-  priorityTipGwei,
-  setPriorityTipGwei,
-
   useAllWallets,
   setUseAllWallets,
 
@@ -91,16 +81,14 @@ export default function SniperConfig({
   setMintCalldata,
 }: SniperConfigProps) {
   const [fetchingInfo, setFetchingInfo] = useState(false);
+  const { address } = useAccount();
 
   const [inspectError, setInspectError] = useState("");
   const burnerAddresses = (() => {
     if (typeof window === "undefined") return [];
-    try {
-      const wallets = JSON.parse(localStorage.getItem("shift_burner_wallets") ?? "[]") as { address?: string }[];
-      return wallets.flatMap((wallet) => (wallet.address ? [wallet.address] : []));
-    } catch {
-      return [];
-    }
+    const wallets = address ? getBurnerWallets(address) : [];
+    const metadata = address ? getBurnerWalletMetadata(address) : [];
+    return (wallets.length > 0 ? wallets : metadata).map((wallet) => wallet.address);
   })();
 
   const eligibilityIcon = (status: WalletEligibility) => {
@@ -333,37 +321,10 @@ export default function SniperConfig({
         </div>
       </div>
 
-      <div className="bg-shift-accent border border-slate-800 rounded-xl p-4 mb-6">
-        <div className="flex items-center gap-2 text-xs font-bold text-amber-400 mb-2 tracking-widest">
-          <Flame className="text-shift-icon" size={16} />
-          WAR MODE: EIP-1559 GAS CONTROLS
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-[11px] text-shift-Muted mb-1 font-mono">Max Fee (Gwei)</label>
-
-            <input
-              type="text"
-              value={maxFeeGwei}
-              onChange={(e) => setMaxFeeGwei(e.target.value)}
-              placeholder="e.g. 25"
-              className="w-full bg-shift-input border border-shift-border rounded-lg p-2.5 font-mono text-xs text-white focus:border-amber-400 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[11px] text-shift-Muted mb-1 font-mono">Priority Tip (Gwei)</label>
-
-            <input
-              type="text"
-              value={priorityTipGwei}
-              onChange={(e) => setPriorityTipGwei(e.target.value)}
-              placeholder="e.g. 5"
-              className="w-full bg-shift-input border border-shift-border rounded-lg p-2.5 font-mono text-xs text-amber-400 focus:border-amber-400 focus:outline-none"
-            />
-          </div>
-        </div>
+      <div className="bg-shift-accent border border-shift-border rounded-xl p-4 mb-6 text-xs text-shift-Muted font-mono">
+        <div className="font-bold text-shift-lime tracking-widest mb-2">AUTOMATIC GAS MANAGEMENT</div>
+        <p>Gas limit and current network fees are estimated automatically at mint time.</p>
+        <p className="mt-1">A chain-specific safety ceiling prevents unexpectedly expensive broadcasts.</p>
       </div>
 
       <button

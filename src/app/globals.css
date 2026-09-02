@@ -16,7 +16,7 @@
   --color-shift-Muted: #9494A0;     /* muted gray-violet, ties to accent */
 
   --color-shift-accent: #1B1A24;    /* violet — your single "voice" color */
-  --color-shift-btn: #8B5CF6;       /* reuse accent for primary buttons */
+  --color-shift-btn: #c6e000;       /* reuse accent for primary buttons */
   --color-shift-icon: #c6e000;      /* lighter violet tint for icons */
   --color-shift-head: #F5F5F7;  
   --font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;

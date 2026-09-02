@@ -10,7 +10,7 @@ import {
 import { randomUUID } from "crypto";
 import { DEFAULT_CHAIN_ID, getChainConfig } from "@/lib/chains";
 import { buildSeaDropPlan, type SeaDropPhase } from "@/lib/seadrop";
-import { loadActiveTasks, loadTasks, loadTrades, saveTask, saveTrade } from "@/server/sniperStore";
+import { loadActiveTasks, loadTasks, loadTrades, loadTradesForOwner, saveTask, saveTrade } from "@/server/sniperStore";
 import { getPublicClient } from "@/lib/viem";
 
 // Wait before broadcasting the next higher-fee tier as a same-nonce replacement.
@@ -46,6 +46,8 @@ export type SniperStatus =
 
 export interface SnipeTask {
   id: string;
+
+  ownerAddress: Address;
 
   targetContract: Address;
   transactionTo: Address;
@@ -91,6 +93,7 @@ export interface SnipeTask {
 
 export interface TradeLog {
   id: string;
+  ownerAddress?: Address;
   timestamp: string;
 
   collectionName?: string;
@@ -179,6 +182,7 @@ function createFailedTradeLog(
 ): TradeLog {
   return {
     id: task.id,
+    ownerAddress: task.ownerAddress,
     timestamp: nowIso(),
     collectionName: task.collectionName,
     collectionSymbol: task.collectionSymbol,
@@ -194,18 +198,18 @@ function createFailedTradeLog(
   };
 }
 
-export function getTradeHistory(): TradeLog[] {
-  return [...tradeHistory].reverse();
+export function getTradeHistory(ownerAddress: Address): TradeLog[] {
+  return loadTradesForOwner(ownerAddress).reverse();
 }
 
 export function getTradeById(tradeId: string): TradeLog | undefined {
   return tradeHistory.find((trade) => trade.id === tradeId);
 }
 
-export function getSniperStatus(taskId: string) {
+export function getSniperStatus(taskId: string, ownerAddress?: Address) {
   const task = taskStatuses.get(taskId);
 
-  if (!task) {
+  if (!task || (ownerAddress && task.ownerAddress?.toLowerCase() !== ownerAddress.toLowerCase())) {
     return undefined;
   }
 
@@ -256,8 +260,9 @@ export function getSniperStatus(taskId: string) {
   };
 }
 
-export function getAllSniperStatuses() {
+export function getAllSniperStatuses(ownerAddress?: Address) {
   return Array.from(taskStatuses.values())
+    .filter((task) => !ownerAddress || task.ownerAddress?.toLowerCase() === ownerAddress.toLowerCase())
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .map((task) => getSniperStatus(task.id));
 }
@@ -654,6 +659,8 @@ async function buildTradeResult(task: SnipeTask, receipt: TransactionReceipt, bu
   const log: TradeLog = {
     id: task.id,
 
+    ownerAddress: task.ownerAddress,
+
     timestamp: nowIso(),
 
     collectionName: task.collectionName,
@@ -978,6 +985,7 @@ export async function armSniper(
   fnName: string,
   mode: "BURNER",
   feeTiers: string[],
+  ownerAddress: Address,
   chainId: number = DEFAULT_CHAIN_ID,
   phaseType: "PUBLIC" | "GUARANTEED_WL" | "FCFS_WL" = "PUBLIC",
 ): Promise<string> {
@@ -1027,6 +1035,8 @@ export async function armSniper(
 
   const task: SnipeTask = {
     id: taskId,
+
+    ownerAddress,
 
     chainId: chainConfig.id,
 
@@ -1085,10 +1095,10 @@ export async function armSniper(
   return task.id;
 }
 
-export function retrySniper(taskId: string): string | undefined {
+export function retrySniper(taskId: string, ownerAddress?: Address): string | undefined {
   const original = taskStatuses.get(taskId);
 
-  if (!original || original.status !== "FAILED" || original.feeTiers.length === 0) {
+  if (!original || (ownerAddress && original.ownerAddress?.toLowerCase() !== ownerAddress.toLowerCase()) || original.status !== "FAILED" || original.feeTiers.length === 0) {
     return undefined;
   }
 
@@ -1119,6 +1129,7 @@ export async function armSniperBatch(
   fnName: string,
   mode: "BURNER",
   feeTiersBatch: string[][],
+  ownerAddress: Address,
   chainId: number = DEFAULT_CHAIN_ID,
   phaseType: "PUBLIC" | "GUARANTEED_WL" | "FCFS_WL" = "PUBLIC",
 ): Promise<string[]> {
@@ -1132,7 +1143,7 @@ export async function armSniperBatch(
 
   try {
     for (const feeTiers of batches) {
-      taskIds.push(await armSniper(contract, price, qty, fnName, mode, feeTiers, chainId, phaseType));
+      taskIds.push(await armSniper(contract, price, qty, fnName, mode, feeTiers, ownerAddress, chainId, phaseType));
     }
 
     return taskIds;
@@ -1145,7 +1156,10 @@ export async function armSniperBatch(
   }
 }
 
-export function disarmSniper(taskId: string): boolean {
+export function disarmSniper(taskId: string, ownerAddress?: Address): boolean {
+  const task = taskStatuses.get(taskId);
+  if (task && ownerAddress && task.ownerAddress?.toLowerCase() !== ownerAddress.toLowerCase()) return false;
+
   const timer = timers.get(taskId);
 
   if (timer) {
@@ -1154,9 +1168,7 @@ export function disarmSniper(taskId: string): boolean {
 
   timers.delete(taskId);
 
-  const task = taskStatuses.get(taskId);
-
-  if (task) {
+  if (task && (!ownerAddress || task.ownerAddress?.toLowerCase() === ownerAddress.toLowerCase())) {
     updateTask(taskId, {
       status: "CANCELLED",
 
@@ -1167,8 +1179,8 @@ export function disarmSniper(taskId: string): boolean {
   return activeTasks.delete(taskId);
 }
 
-export function getActiveTasks() {
-  return Array.from(activeTasks.values()).map((task) => ({
+export function getActiveTasks(ownerAddress?: Address) {
+  return Array.from(activeTasks.values()).filter((task) => !ownerAddress || task.ownerAddress?.toLowerCase() === ownerAddress.toLowerCase()).map((task) => ({
     id: task.id,
 
     chainId: task.chainId,

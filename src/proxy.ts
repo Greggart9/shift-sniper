@@ -1,7 +1,21 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { applyCors, checkApiRequest } from "@/lib/apiSecurity";
 
 export function proxy(request: NextRequest) {
+  const securityFailure = checkApiRequest(request);
+  if (securityFailure) {
+    const response = NextResponse.json(
+      { success: false, error: securityFailure.message },
+      { status: securityFailure.status },
+    );
+    return applyCors(request, response);
+  }
+
+  if (request.nextUrl.pathname.startsWith("/api/") && request.method === "OPTIONS") {
+    return applyCors(request, new NextResponse(null, { status: 204 }));
+  }
+
   const user = process.env.SNIPER_AUTH_USER;
   const pass = process.env.SNIPER_AUTH_PASS;
 
@@ -18,14 +32,17 @@ export function proxy(request: NextRequest) {
     const reqUser = decoded.slice(0, separatorIndex);
     const reqPass = decoded.slice(separatorIndex + 1);
     if (reqUser === user && reqPass === pass) {
-      return NextResponse.next();
+      return request.nextUrl.pathname.startsWith("/api/")
+        ? applyCors(request, NextResponse.next())
+        : NextResponse.next();
     }
   }
 
-  return new NextResponse("Authentication required.", {
+  const response = new NextResponse("Authentication required.", {
     status: 401,
     headers: { "WWW-Authenticate": 'Basic realm="Shift Sniper"' },
   });
+  return request.nextUrl.pathname.startsWith("/api/") ? applyCors(request, response) : response;
 }
 
 export const config = {

@@ -20,9 +20,16 @@ database.exec(`
   CREATE TABLE IF NOT EXISTS trade_history (
     id TEXT PRIMARY KEY,
     payload TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    owner_address TEXT
   );
 `);
+
+try {
+  database.exec("ALTER TABLE trade_history ADD COLUMN owner_address TEXT");
+} catch {
+  // Existing databases already have the ownership column.
+}
 
 const upsertTaskStatement = database.prepare(`
   INSERT INTO sniper_tasks (id, payload, is_active, updated_at)
@@ -42,12 +49,16 @@ const getActiveTasksStatement = database.prepare(`
 `);
 
 const insertTradeStatement = database.prepare(`
-  INSERT OR REPLACE INTO trade_history (id, payload, created_at)
-  VALUES (@id, @payload, @createdAt)
+  INSERT OR REPLACE INTO trade_history (id, payload, created_at, owner_address)
+  VALUES (@id, @payload, @createdAt, @ownerAddress)
 `);
 
 const getTradesStatement = database.prepare(`
   SELECT payload FROM trade_history ORDER BY created_at ASC
+`);
+
+const getOwnerTradesStatement = database.prepare(`
+  SELECT payload FROM trade_history WHERE owner_address = @ownerAddress ORDER BY created_at ASC
 `);
 
 const trimTradesStatement = database.prepare(`
@@ -85,10 +96,17 @@ export function saveTrade(trade: TradeLog, limit: number) {
     id: trade.id,
     payload: JSON.stringify(trade),
     createdAt: trade.timestamp,
+    ownerAddress: trade.ownerAddress?.toLowerCase() ?? null,
   });
   trimTradesStatement.run({ limit });
 }
 
 export function loadTrades(): TradeLog[] {
   return (getTradesStatement.all() as { payload: string }[]).map(({ payload }) => parsePayload<TradeLog>(payload));
+}
+
+export function loadTradesForOwner(ownerAddress: string): TradeLog[] {
+  return (getOwnerTradesStatement.all({ ownerAddress: ownerAddress.toLowerCase() }) as { payload: string }[]).map(
+    ({ payload }) => parsePayload<TradeLog>(payload),
+  );
 }

@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { formatEther } from "viem";
 import { publicClient } from "@/lib/viem";
+import { WALLET_STORAGE_KEYS, walletStorageKey } from "@/lib/walletStorage";
+import { getBurnerWalletMetadata, getBurnerWallets } from "@/lib/burnerVault";
+import { useAccount } from "wagmi";
 
 interface CheckResult {
   name: string;
@@ -16,6 +19,7 @@ export default function DoctorPanel() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<CheckResult[]>([]);
+  const { address } = useAccount();
 
   const runDiagnostics = async () => {
     setLoading(true);
@@ -30,17 +34,15 @@ export default function DoctorPanel() {
       checks.push({ name: "Server diagnostics", status: "FAIL", detail: "Could not reach /api/doctor." });
     }
 
-    const savedWalletsRaw = localStorage.getItem("shift_burner_wallets");
-    const activeId = localStorage.getItem("shift_active_burner_id");
-    const wallets: { id: string; address: `0x${string}`; privateKey: `0x${string}` }[] = savedWalletsRaw
-      ? JSON.parse(savedWalletsRaw)
-      : [];
+    const activeId = address && localStorage.getItem(walletStorageKey(WALLET_STORAGE_KEYS.activeBurner, address));
+    const wallets = address ? getBurnerWallets(address) : [];
+    const walletMetadata = address ? getBurnerWalletMetadata(address) : [];
 
     if (wallets.length === 0) {
       checks.push({
         name: "Burner wallets",
-        status: "FAIL",
-        detail: "No burner wallets saved. Generate or import one before arming.",
+        status: walletMetadata.length > 0 ? "WARN" : "FAIL",
+        detail: walletMetadata.length > 0 ? "Wallets are remembered but locked. Unlock them before arming." : "No burner wallets available. Generate or import one before arming.",
       });
     } else {
       checks.push({ name: "Burner wallets", status: "PASS", detail: `${wallets.length} wallet(s) saved.` });

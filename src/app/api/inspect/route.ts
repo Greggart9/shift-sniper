@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { protectApi } from "@/lib/arcjet";
 import { isAddress, formatEther } from "viem";
 import { DEFAULT_CHAIN_ID, getChainConfig } from "@/lib/chains";
 import { getPublicClient } from "@/lib/viem";
@@ -239,6 +240,8 @@ async function detectMintPrice(client: ReturnType<typeof getPublicClient>, addre
 // GET handler
 
 export async function GET(request: Request) {
+  const blocked = await protectApi(request, "expensive-read");
+  if (blocked) return blocked;
   const { searchParams } = new URL(request.url);
   const requestedChainId = Number(searchParams.get("chainId") ?? DEFAULT_CHAIN_ID);
 

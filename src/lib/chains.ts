@@ -83,8 +83,8 @@ export interface ChainConfig {
   fallbackRpcUrls: string[];
   explorerUrl: string;
   // Seed per-chain gas defaults because gas norms vary significantly by network.
-  defaultMaxFeeGwei: string;
-  defaultPriorityTipGwei: string;
+  maxGasFeeGwei: string;
+  maxPriorityFeeGwei: string;
 }
 
 export const SUPPORTED_CHAINS: ChainConfig[] = [
@@ -96,8 +96,8 @@ export const SUPPORTED_CHAINS: ChainConfig[] = [
     rpcUrl: ROBINHOOD_RPC_URL,
     fallbackRpcUrls: [ROBINHOOD_FALLBACK_RPC_URL],
     explorerUrl: "https://robinhoodchain.blockscout.com",
-    defaultMaxFeeGwei: "25",
-    defaultPriorityTipGwei: "5",
+    maxGasFeeGwei: "25",
+    maxPriorityFeeGwei: "5",
   },
   {
     id: 1,
@@ -107,8 +107,8 @@ export const SUPPORTED_CHAINS: ChainConfig[] = [
     rpcUrl: "https://ethereum-rpc.publicnode.com",
     fallbackRpcUrls: ["https://eth.llamarpc.com"],
     explorerUrl: "https://etherscan.io",
-    defaultMaxFeeGwei: "30",
-    defaultPriorityTipGwei: "1.5",
+    maxGasFeeGwei: "100",
+    maxPriorityFeeGwei: "5",
   },
   {
     id: 8453,
@@ -118,8 +118,8 @@ export const SUPPORTED_CHAINS: ChainConfig[] = [
     rpcUrl: "https://mainnet.base.org",
     fallbackRpcUrls: ["https://base-rpc.publicnode.com"],
     explorerUrl: "https://basescan.org",
-    defaultMaxFeeGwei: "0.05",
-    defaultPriorityTipGwei: "0.01",
+    maxGasFeeGwei: "1",
+    maxPriorityFeeGwei: "0.1",
   },
   {
     id: 42161,
@@ -129,8 +129,8 @@ export const SUPPORTED_CHAINS: ChainConfig[] = [
     rpcUrl: "https://arb1.arbitrum.io/rpc",
     fallbackRpcUrls: ["https://arbitrum-one-rpc.publicnode.com"],
     explorerUrl: "https://arbiscan.io",
-    defaultMaxFeeGwei: "0.1",
-    defaultPriorityTipGwei: "0.01",
+    maxGasFeeGwei: "2",
+    maxPriorityFeeGwei: "0.1",
   },
   {
     id: 57073,
@@ -140,8 +140,8 @@ export const SUPPORTED_CHAINS: ChainConfig[] = [
     rpcUrl: "https://rpc-gel.inkonchain.com",
     fallbackRpcUrls: [],
     explorerUrl: "https://explorer.inkonchain.com",
-    defaultMaxFeeGwei: "0.05",
-    defaultPriorityTipGwei: "0.01",
+    maxGasFeeGwei: "1",
+    maxPriorityFeeGwei: "0.1",
   },
 ];
 
